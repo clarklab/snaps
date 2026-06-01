@@ -2,11 +2,11 @@
 
 Colors: you gotta catch 'em all.
 
-**Snaps Quest** is a local-first, iOS-native photo game. You get a 3×3 board of
-nine colors arranged like a rainbow. Tap a color and it zooms into its own 3×3
-board of empty slots — your job is to fill all nine with photos of things in
-that color. A blue door, a blue mug, a blue sky… then step back and admire the
-collage.
+**Snaps Quest** is a local-first, cross-platform photo game that runs in the
+browser on iOS and Android (and desktop). You get a 3×3 board of nine colors
+arranged like a rainbow. Tap a color and it expands into its own 3×3 board of
+empty slots — your job is to fill all nine with photos of things in that color.
+A blue door, a blue mug, a blue sky… then step back and admire the collage.
 
 It's a single-player take on the trip idea where each friend only shoots one
 color and ends up with a beautiful single-hue grid.
@@ -15,78 +15,82 @@ color and ends up with a beautiful single-hue grid.
 
 - **Nine colors**, arranged rainbow-style: Red, Orange, Yellow / Green, Blue,
   Purple / Pink, Black, White.
-- **Tap to dive in** — a native iOS 18 zoom transition expands the color tile
-  into its board.
+- **Tap to dive in** — the color tile morphs into its photo board.
 - **Fill a slot** by choosing from your camera roll, or by taking a photo right
-  then with the in-app camera.
-- **Full resolution, always.** Photos are *referenced*, never copied or
-  compressed — Snaps Quest stores only the Photos-library identifier
-  (`PHAsset.localIdentifier`) and resolves the original on demand. Photos you
-  capture in-app are saved to your library at full quality, then referenced the
-  same way.
-- **Local only.** Image requests never touch the network; nothing leaves the
-  device. The only persisted data is a small JSON file of references in
-  Application Support.
+  then with your phone's camera (`<input type="file" capture>`).
+- **Full resolution, always.** A browser can't reference a filesystem path, so
+  the faithful equivalent is used: the **original file bytes are stored,
+  untouched, in IndexedDB** on your device — never re-encoded or compressed. A
+  tiny thumbnail is generated alongside purely for fast grid rendering. (Verified:
+  a 42,411-byte source photo is stored as exactly 42,411 bytes.)
+- **Local only.** Nothing is uploaded; there is no server and no network call.
+  Board layout lives in `localStorage`; photo bytes live in IndexedDB.
+- **Installable PWA.** Add to Home Screen for a standalone, full-screen app that
+  works completely offline (app shell + fonts are precached).
 - **Progress, gently.** Each color tile shows a `n/9` ring; the home screen
-  shows an overall bar that taps to toggle between “colors complete” (`2 of 9`)
-  and “photos placed” (`42 of 81`).
+  shows an overall bar that taps to toggle between "colors complete" (`2 of 9`)
+  and "photos placed" (`42 of 81`).
 - **Light & dark**, following the system by default, with an in-app switcher in
   Settings (System / Light / Dark).
-- **Google Sans Flex** throughout, with an automatic system-font fallback.
+- **Google Sans Flex** throughout, self-hosted (OFL) so it works offline.
 
 ## Tech
 
-- **SwiftUI**, targeting **iOS 18.0+** (uses the `.zoom` navigation transition).
-- `PhotosUI.PhotosPicker` initialized with `photoLibrary: .shared()` so picked
-  items return a reusable asset identifier.
-- `PHCachingImageManager` for fast, local-only thumbnail loading.
-- No third-party dependencies.
+- **React + TypeScript + Vite**, no backend.
+- **framer-motion** for the tile→board morph, sheets, and gestures.
+- **IndexedDB** (hand-rolled wrapper) for full-quality photo bytes; `localStorage`
+  for board state.
+- **vite-plugin-pwa** (Workbox) for the offline service worker + manifest.
 
 ## Project layout
 
 ```
-SnapsQuest/
-  SnapsQuest.xcodeproj
-  SnapsQuest/
-    SnapsQuestApp.swift        App entry, wires up store + theme
-    Models/
-      QuestColor.swift         The nine colors and their swatches
-      QuestStore.swift         Persistence: colorID → nine photo references
-    Photos/
-      PhotoLibraryService.swift  Load by reference, save captures, auth
-      CameraPicker.swift         UIImagePickerController wrapper
-    Theme/
-      Theme.swift              Appearance mode + color helpers
-      Typography.swift         Google Sans Flex font helpers
-    Views/
-      RootView.swift           Home: the 3×3 color board + overall progress
-      ColorDetailView.swift    A single color's 3×3 photo board
-      AssetThumbnail.swift     Async, size-aware library image view
-      PhotoViewerView.swift    Full-screen viewer (pinch zoom, replace/remove)
-      ProgressViews.swift      Slim bar + progress ring
-      SettingsView.swift       Appearance switcher + stats
-    Resources/Fonts/           Google Sans Flex (OFL) — see NOTICE.md
-    Assets.xcassets/           App icon + accent color
-    Info.plist                 Fonts + photo/camera usage strings
+index.html
+vite.config.ts            Vite + PWA manifest / service worker
+public/
+  fonts/                  Google Sans Flex (OFL) — see NOTICE.md
+  icons/                  App + maskable + Apple touch icons
+src/
+  main.tsx                Entry; wraps app in Theme + Store providers
+  App.tsx                 Home header + board, detail overlay, settings
+  colors.ts               The nine colors, swatches, contrast helpers
+  index.css               Tokens (light/dark), @font-face, resets
+  lib/
+    db.ts                 IndexedDB blob store (full + thumb)
+    image.ts              Thumbnail generation (canvas), never touches original
+  state/
+    store.tsx             Boards: colorId → nine photo references
+    theme.tsx             Appearance mode + effective scheme
+  components/
+    ColorBoard.tsx        Home 3×3 color grid + overall progress
+    ColorDetail.tsx       A single color's 3×3 photo board + pickers
+    PhotoViewer.tsx       Full-screen, full-quality viewer (drag to dismiss)
+    Thumbnail.tsx         Loads a stored photo by id via object URL
+    Progress.tsx          Slim bar + progress ring
+    Sheet.tsx             Reusable bottom sheet
+    Settings.tsx          Appearance switcher + stats + privacy note
 ```
 
-## Build & run
+## Run it
 
-1. Open `SnapsQuest/SnapsQuest.xcodeproj` in **Xcode 16** or later.
-2. Select a simulator or your device and hit **Run**.
-   - On a device, set your team under *Signing & Capabilities* (the bundle id is
-     `quest.snaps.SnapsQuest`).
-3. The first time you add a photo, iOS asks for photo-library access — grant it
-   so Snaps Quest can reference your originals.
+```sh
+npm install
+npm run dev        # local dev server
+npm run build      # type-check + production build to dist/
+npm run preview    # serve the production build
+```
 
-> The in-app camera requires a real device (the simulator has no camera).
+Open on your phone (same network, or deploy to **snaps.quest**) and use
+**Add to Home Screen** for the full standalone app experience. Granting the
+photo picker happens through the OS the first time you add a photo.
 
 ## Notes on quality & privacy
 
-Nothing is uploaded, and originals are never re-encoded for display. iCloud-only
-originals aren't downloaded (network access is disabled on image requests), so
-if a referenced photo lives only in iCloud and isn't on-device, it simply won't
-render until it's available locally.
+Everything stays on the device. Originals are stored verbatim and only ever
+downscaled for the on-screen thumbnail; the full-screen viewer reads the
+original bytes back. Because storage is per-browser, clearing site data (or
+deleting the installed app) removes the photos from Snaps Quest — the originals
+in your camera roll are of course untouched.
 
 ---
 

@@ -1,0 +1,110 @@
+/* ---- Google Sans Flex (OFL) — self-hosted for offline use ---- */
+@font-face {
+  font-family: "Google Sans Flex";
+  src: url("/fonts/GoogleSansFlex-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Google Sans Flex";
+  src: url("/fonts/GoogleSansFlex-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Google Sans Flex";
+  src: url("/fonts/GoogleSansFlex-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Google Sans Flex";
+  src: url("/fonts/GoogleSansFlex-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ---- Design tokens ---- */
+:root {
+  --font: "Google Sans Flex", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, system-ui, sans-serif;
+
+  /* Light (default) */
+  --bg: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --separator: rgba(60, 60, 67, 0.12);
+  --label: #1c1c1e;
+  --label-secondary: rgba(60, 60, 67, 0.6);
+  --label-tertiary: rgba(60, 60, 67, 0.3);
+  --fill-quaternary: rgba(116, 116, 128, 0.08);
+  --accent: #007aff;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --sheet-scrim: rgba(0, 0, 0, 0.32);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="dark"] {
+  --bg: #0c0c0e;
+  --bg-elevated: #1c1c1e;
+  --separator: rgba(84, 84, 88, 0.4);
+  --label: #ffffff;
+  --label-secondary: rgba(235, 235, 245, 0.6);
+  --label-tertiary: rgba(235, 235, 245, 0.3);
+  --fill-quaternary: rgba(118, 118, 128, 0.24);
+  --accent: #0a84ff;
+  --hairline: rgba(255, 255, 255, 0.12);
+  --sheet-scrim: rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--label);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  /* Keep it feeling like an app, not a web page */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Respect reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
