@@ -7,6 +7,7 @@ import {
   wash,
   type QuestColor,
 } from "../colors";
+import { haptic } from "../lib/haptics";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
 import { PhotoViewer } from "./PhotoViewer";
@@ -28,6 +29,7 @@ export function ColorDetail({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [viewerSlot, setViewerSlot] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
 
   const libRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
@@ -52,9 +54,17 @@ export function ColorDetail({
     e.target.value = ""; // allow re-picking the same file later
     if (!file || activeSlot == null) return;
     const slot = activeSlot;
+    const willComplete = store.filledCount(color.id) === SLOTS_PER_BOARD - 1;
     setActiveSlot(null);
     try {
       await store.addPhoto(color.id, slot, file);
+      if (willComplete) {
+        haptic("success");
+        setJustCompleted(true);
+        setTimeout(() => setJustCompleted(false), 1900);
+      } else {
+        haptic("tap");
+      }
     } catch (err) {
       console.error("Failed to add photo", err);
     }
@@ -167,9 +177,19 @@ export function ColorDetail({
         }}
       >
         {slots.map((photoId, i) => (
-          <button
+          <motion.button
             key={i}
-            onClick={() => (photoId ? setViewerSlot(i) : openSource(i))}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              haptic("tap");
+              if (photoId) setViewerSlot(i);
+              else openSource(i);
+            }}
+            aria-label={
+              photoId
+                ? `View ${color.name} photo ${i + 1}`
+                : `Add a ${color.name.toLowerCase()} photo`
+            }
             style={{
               position: "relative",
               aspectRatio: "1 / 1",
@@ -184,9 +204,21 @@ export function ColorDetail({
             {photoId ? (
               <Thumbnail photoId={photoId} alt={`${color.name} photo`} />
             ) : (
-              <PlusIcon color={hex} />
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 999,
+                  display: "grid",
+                  placeItems: "center",
+                  border: `1.5px dashed ${hex}`,
+                  opacity: 0.7,
+                }}
+              >
+                <PlusIcon color={hex} />
+              </div>
             )}
-          </button>
+          </motion.button>
         ))}
       </motion.div>
 
@@ -258,6 +290,42 @@ export function ColorDetail({
         </div>
       </Sheet>
 
+      {/* Board-complete celebration */}
+      <AnimatePresence>
+        {justCompleted && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ type: "spring", stiffness: 400, damping: 26 }}
+            style={{
+              position: "fixed",
+              top: "calc(var(--safe-top) + 16px)",
+              left: 0,
+              right: 0,
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 40,
+            }}
+          >
+            <div
+              style={{
+                background: "var(--bg-elevated)",
+                color: "var(--label)",
+                padding: "10px 18px",
+                borderRadius: 999,
+                boxShadow: "var(--surface-shadow)",
+                fontSize: 15,
+                fontWeight: 600,
+              }}
+            >
+              🎉 {color.name} board complete
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Full-screen viewer */}
       <AnimatePresence>
         {viewerSlot != null && slots[viewerSlot] && (
@@ -271,6 +339,7 @@ export function ColorDetail({
               setSourceOpen(true);
             }}
             onRemove={() => {
+              haptic("tap");
               void store.removePhoto(color.id, viewerSlot!);
               setViewerSlot(null);
             }}
@@ -293,8 +362,9 @@ function SheetButton({
   muted?: boolean;
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
+      whileTap={{ scale: 0.97 }}
       style={{
         display: "block",
         width: "100%",
@@ -312,7 +382,7 @@ function SheetButton({
       }}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { COLORS, readableInk, SLOTS_PER_BOARD, swatch } from "../colors";
+import { haptic } from "../lib/haptics";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
 import { ProgressBar, ProgressRing } from "./Progress";
@@ -41,6 +42,7 @@ export function ColorBoard({
           borderRadius: 18,
           padding: 16,
           marginBottom: 16,
+          boxShadow: "var(--surface-shadow)",
         }}
       >
         <div
@@ -67,6 +69,20 @@ export function ColorBoard({
         <ProgressBar value={value} total={total} tint="var(--accent)" />
       </motion.button>
 
+      {store.totalFilled === 0 && (
+        <p
+          style={{
+            margin: "0 4px 16px",
+            fontSize: 13.5,
+            lineHeight: 1.4,
+            color: "var(--label-secondary)",
+          }}
+        >
+          Pick a color, then fill its grid with nine photos of things in that
+          color.
+        </p>
+      )}
+
       <div
         style={{
           display: "grid",
@@ -83,16 +99,20 @@ export function ColorBoard({
             <motion.button
               key={color.id}
               layoutId={`hero-${color.id}`}
-              onClick={() => onSelect(color.id)}
+              onClick={() => {
+                haptic("select");
+                onSelect(color.id);
+              }}
               whileTap={{ scale: 0.95 }}
+              aria-label={`${color.name}, ${fill} of ${SLOTS_PER_BOARD} photos`}
               style={{
                 position: "relative",
                 aspectRatio: "1 / 1",
                 borderRadius: 20,
                 background: hex,
                 boxShadow: color.needsBorder
-                  ? "inset 0 0 0 1px var(--hairline)"
-                  : "none",
+                  ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
+                  : "var(--tile-shadow)",
                 padding: 14,
                 display: "flex",
                 flexDirection: "column",
@@ -103,7 +123,13 @@ export function ColorBoard({
             >
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 {complete ? (
-                  <CheckIcon color={ink} />
+                  <motion.div
+                    initial={{ scale: 0.3, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 520, damping: 18 }}
+                  >
+                    <CheckIcon color={ink} />
+                  </motion.div>
                 ) : (
                   <ProgressRing
                     value={fill}

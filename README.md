@@ -84,6 +84,19 @@ Open on your phone (same network, or deploy to **snaps.quest**) and use
 **Add to Home Screen** for the full standalone app experience. Granting the
 photo picker happens through the OS the first time you add a photo.
 
+## Deploy (Netlify)
+
+`netlify.toml` is included, so deploying is zero-config:
+
+- **Build command:** `npm run build`
+- **Publish directory:** `dist`
+- SPA fallback + sensible cache headers (long-lived for fingerprinted assets
+  and fonts; always-revalidate for `sw.js` and the manifest) are configured.
+
+Point Netlify at the repo (or `netlify deploy --build --prod`) and attach the
+**snaps.quest** domain. Because it's a PWA, the first visit installs the service
+worker and subsequent visits work offline.
+
 ## Notes on quality & privacy
 
 Everything stays on the device. Originals are stored verbatim and only ever
