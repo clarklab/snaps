@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { COLORS, readableInk, SLOTS_PER_BOARD, swatch } from "../colors";
 import { haptic } from "../lib/haptics";
+import { useSampleLoader } from "../state/useSampleLoader";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
 import { ProgressBar, ProgressRing } from "./Progress";
@@ -13,9 +14,16 @@ export function ColorBoard({
 }) {
   const { scheme } = useTheme();
   const store = useStore();
+  const samples = useSampleLoader();
   const [showPhotos, setShowPhotos] = useState(
     () => localStorage.getItem("snaps.progressMode") === "photos"
   );
+
+  const handleLoadSamples = async () => {
+    haptic("select");
+    const placed = await samples.load();
+    if (placed) haptic("success");
+  };
 
   const value = showPhotos ? store.totalFilled : store.completedColors;
   const total = showPhotos ? store.totalSlots : COLORS.length;
@@ -69,18 +77,71 @@ export function ColorBoard({
         <ProgressBar value={value} total={total} tint="var(--accent)" />
       </motion.button>
 
-      {store.totalFilled === 0 && (
-        <p
-          style={{
-            margin: "0 4px 16px",
-            fontSize: 13.5,
-            lineHeight: 1.4,
-            color: "var(--label-secondary)",
-          }}
-        >
-          Pick a color, then fill its grid with nine photos of things in that
-          color.
-        </p>
+      {(store.totalFilled === 0 || samples.seeding) && (
+        <div style={{ margin: "0 4px 16px" }}>
+          {samples.seeding ? (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 13.5,
+                  marginBottom: 8,
+                  color: "var(--label-secondary)",
+                }}
+              >
+                <span>Loading sample photos…</span>
+                <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {samples.progress.done} / {samples.progress.total || "…"}
+                </span>
+              </div>
+              <ProgressBar
+                value={samples.progress.done}
+                total={samples.progress.total || 1}
+                tint="var(--accent)"
+              />
+            </>
+          ) : (
+            <>
+              <p
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: 13.5,
+                  lineHeight: 1.4,
+                  color: "var(--label-secondary)",
+                }}
+              >
+                Pick a color, then fill its grid with nine photos of things in
+                that color.
+              </p>
+              {samples.available && (
+                <button
+                  onClick={handleLoadSamples}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--accent)",
+                    padding: "2px 0",
+                  }}
+                >
+                  Or load a sample set →
+                </button>
+              )}
+            </>
+          )}
+          {samples.note && (
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: 12.5,
+                lineHeight: 1.4,
+                color: "var(--label-secondary)",
+              }}
+            >
+              {samples.note}
+            </p>
+          )}
+        </div>
       )}
 
       <div

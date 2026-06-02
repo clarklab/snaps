@@ -1,14 +1,10 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../colors";
 import { estimateUsage } from "../lib/db";
-import {
-  getSamplesManifest,
-  loadSampleBoards,
-  type SamplesManifest,
-} from "../lib/samples";
+import { haptic } from "../lib/haptics";
+import { useSampleLoader } from "../state/useSampleLoader";
 import { useStore } from "../state/store";
 import { useTheme, type AppearanceMode } from "../state/theme";
-import { haptic } from "../lib/haptics";
 import { ProgressBar } from "./Progress";
 import { Sheet } from "./Sheet";
 
@@ -29,44 +25,27 @@ export function Settings({
   const store = useStore();
   const [usage, setUsage] = useState<string | null>(null);
 
-  const [manifest, setManifest] = useState<SamplesManifest | null>(null);
-  const [seeding, setSeeding] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [note, setNote] = useState<string | null>(null);
+  const {
+    available: samplesAvailable,
+    seeding,
+    progress,
+    note,
+    load,
+  } = useSampleLoader();
 
   useEffect(() => {
     if (!open) return;
-    setNote(null);
     estimateUsage().then((bytes) => {
       if (bytes == null) return setUsage(null);
       const mb = bytes / (1024 * 1024);
       setUsage(mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`);
     });
-    getSamplesManifest().then(setManifest);
   }, [open]);
 
   const handleLoadSamples = async () => {
-    if (!manifest || seeding) return;
     haptic("select");
-    setNote(null);
-    setSeeding(true);
-    setProgress({ done: 0, total: 0 });
-    try {
-      const placed = await loadSampleBoards(store, manifest, (done, total) =>
-        setProgress({ done, total })
-      );
-      if (placed === 0) {
-        setNote(
-          "Your boards already have photos. Clear a board first to drop samples there."
-        );
-      } else {
-        haptic("success");
-      }
-    } catch {
-      setNote("Couldn't load samples — check your connection and try again.");
-    } finally {
-      setSeeding(false);
-    }
+    const placed = await load();
+    if (placed) haptic("success");
   };
 
   const handleClearSamples = () => {
@@ -137,7 +116,7 @@ export function Settings({
           value={`${store.completedColors} of ${COLORS.length}`}
         />
 
-        {manifest && (
+        {samplesAvailable && (
           <>
             <SectionLabel style={{ marginTop: 22 }}>Sample boards</SectionLabel>
             {seeding ? (
