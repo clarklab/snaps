@@ -68,11 +68,11 @@ function shuffled<T>(arr: T[]): T[] {
 
 /**
  * How many sample fetches run at once. The local-precached set is small
- * (≈40 KB each), so the bottleneck is canvas thumbnailing, not the wire.
- * Six keeps the main thread happy on mid-range Androids while still
- * looking like an overlapping cascade.
+ * (≈40 KB each), so the bottleneck is canvas thumbnailing on the main
+ * thread. Ten gives the cascade a livelier "popcorn" feel without
+ * fully starving the UI thread on mid-range Androids.
  */
-const CONCURRENCY = 6;
+const CONCURRENCY = 10;
 
 /**
  * Fills every *empty* color board from the manifest. Boards that already have

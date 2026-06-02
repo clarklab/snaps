@@ -1,5 +1,19 @@
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getPhoto } from "../lib/db";
+
+/**
+ * Convert a string ID into a stable, small float in a given range.
+ * Used to give each thumbnail a slightly different entrance rotation
+ * so the sample-load cascade reads as a sparkle of confetti rather
+ * than a row of identical pops.
+ */
+function hashToRange(seed: string, min: number, max: number): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  const t = ((h & 0xffff) / 0xffff + 1) % 1; // 0..1
+  return min + t * (max - min);
+}
 
 /**
  * Loads a stored photo from IndexedDB and renders it via an object URL.
@@ -73,26 +87,39 @@ export function Thumbnail({
     );
   }
 
+  // A small per-photo rotation derived from the id so each photo lands
+  // at its own jaunty angle — combined with the spring scale it reads
+  // as a sparkle of confetti during the sample-load cascade rather than
+  // a row of identical pops. Range is intentionally small so steady-state
+  // photos still look neatly aligned (the rotation animates to 0 anyway).
+  const rotateFrom = hashToRange(photoId, -8, 8);
+
   return (
-    <img
+    <motion.img
       ref={handleImgRef}
       src={url}
       alt={alt}
       onLoad={() => setLoaded(true)}
+      initial={{ opacity: 0, scale: 0.55, rotate: rotateFrom }}
+      animate={
+        loaded
+          ? { opacity: 1, scale: 1, rotate: 0 }
+          : { opacity: 0, scale: 0.55, rotate: rotateFrom }
+      }
+      transition={{
+        opacity: { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
+        scale: { type: "spring", stiffness: 260, damping: 14, mass: 0.6 },
+        rotate: { type: "spring", stiffness: 220, damping: 16, mass: 0.6 },
+      }}
       style={{
         width: "100%",
         height: "100%",
         objectFit,
         display: "block",
-        opacity: loaded ? 1 : 0,
-        // A barely-there scale-pop makes each photo feel like it lands
-        // rather than appearing. Curve is the iOS-style ease-out spring
-        // approximation; duration is short enough that 81 thumbnails
-        // animating at once (after a page refresh) reads as elegant, not chaotic.
-        transform: loaded ? "scale(1)" : "scale(0.92)",
-        transition:
-          "opacity 0.32s ease-out, transform 0.36s cubic-bezier(0.16, 1, 0.3, 1)",
         background: tint,
+        // Hint the compositor so the transform animation stays smooth
+        // even when many thumbnails animate concurrently.
+        willChange: "transform, opacity",
       }}
     />
   );
