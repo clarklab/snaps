@@ -1,23 +1,24 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { COLORS, readableInk, SLOTS_PER_BOARD, swatch } from "../colors";
+import {
+  COLORS,
+  SLOTS_PER_BOARD,
+  swatch,
+  type QuestColor,
+} from "../colors";
 import { haptic } from "../lib/haptics";
 import { useSampleLoader } from "../state/useSampleLoader";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
-import { ProgressBar, ProgressRing } from "./Progress";
+import { ProgressBar } from "./Progress";
+import { Thumbnail } from "./Thumbnail";
 
 export function ColorBoard({
   onSelect,
 }: {
   onSelect: (colorId: string) => void;
 }) {
-  const { scheme } = useTheme();
   const store = useStore();
   const samples = useSampleLoader();
-  const [showPhotos, setShowPhotos] = useState(
-    () => localStorage.getItem("snaps.progressMode") === "photos"
-  );
 
   const handleLoadSamples = async () => {
     haptic("select");
@@ -25,58 +26,8 @@ export function ColorBoard({
     if (placed) haptic("success");
   };
 
-  const value = showPhotos ? store.totalFilled : store.completedColors;
-  const total = showPhotos ? store.totalSlots : COLORS.length;
-
-  const toggle = () => {
-    setShowPhotos((v) => {
-      const next = !v;
-      localStorage.setItem("snaps.progressMode", next ? "photos" : "colors");
-      return next;
-    });
-  };
-
   return (
-    <div style={{ padding: "8px 16px 28px" }}>
-      {/* Overall progress — tap to toggle between colors and photos */}
-      <motion.button
-        layout
-        onClick={toggle}
-        style={{
-          display: "block",
-          width: "100%",
-          textAlign: "left",
-          background: "var(--bg-elevated)",
-          borderRadius: 18,
-          padding: 16,
-          marginBottom: 16,
-          boxShadow: "var(--surface-shadow)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: 10,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: "var(--label-secondary)",
-            }}
-          >
-            {showPhotos ? "Photos placed" : "Colors complete"}
-          </span>
-          <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-            {value} of {total}
-          </span>
-        </div>
-        <ProgressBar value={value} total={total} tint="var(--accent)" />
-      </motion.button>
-
+    <div style={{ padding: "4px 16px 28px" }}>
       {(store.totalFilled === 0 || samples.seeding) && (
         <div style={{ margin: "0 4px 16px" }}>
           {samples.seeding ? (
@@ -148,93 +99,113 @@ export function ColorBoard({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
+          gap: 14,
         }}
       >
-        {COLORS.map((color) => {
-          const fill = store.filledCount(color.id);
-          const hex = swatch(color, scheme);
-          const ink = readableInk(hex);
-          const complete = fill === SLOTS_PER_BOARD;
-          return (
-            <motion.button
-              key={color.id}
-              layoutId={`hero-${color.id}`}
-              onClick={() => {
-                haptic("select");
-                onSelect(color.id);
-              }}
-              whileTap={{ scale: 0.95 }}
-              aria-label={`${color.name}, ${fill} of ${SLOTS_PER_BOARD} photos`}
-              style={{
-                position: "relative",
-                aspectRatio: "1 / 1",
-                borderRadius: 20,
-                background: hex,
-                boxShadow: color.needsBorder
-                  ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
-                  : "var(--tile-shadow)",
-                padding: 14,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                alignItems: "stretch",
-                overflow: "hidden",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                {complete ? (
-                  <motion.div
-                    initial={{ scale: 0.3, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 520, damping: 18 }}
-                  >
-                    <CheckIcon color={ink} />
-                  </motion.div>
-                ) : (
-                  <ProgressRing
-                    value={fill}
-                    total={SLOTS_PER_BOARD}
-                    tint={ink}
-                    track={
-                      ink === "#ffffff"
-                        ? "rgba(255,255,255,0.35)"
-                        : "rgba(0,0,0,0.18)"
-                    }
-                  />
-                )}
-              </div>
-              <div style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: ink }}>
-                  {color.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: ink,
-                    opacity: 0.7,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {fill}/{SLOTS_PER_BOARD}
-                </div>
-              </div>
-            </motion.button>
-          );
-        })}
+        {COLORS.map((color) => (
+          <ColorTile key={color.id} color={color} onSelect={onSelect} />
+        ))}
       </div>
     </div>
   );
 }
 
-function CheckIcon({ color }: { color: string }) {
+/**
+ * A home tile = a live 3×3 mini-collage of that color's board. Empty slots show
+ * the swatch (so an untouched board reads as a color square split into nine);
+ * filled slots show the photo, so the home screen fills in as you collect.
+ * The colored square is the shared element that morphs into the detail hero.
+ */
+function ColorTile({
+  color,
+  onSelect,
+}: {
+  color: QuestColor;
+  onSelect: (colorId: string) => void;
+}) {
+  const { scheme } = useTheme();
+  const store = useStore();
+  const hex = swatch(color, scheme);
+  const slots = store.boards[color.id] ?? Array(SLOTS_PER_BOARD).fill(null);
+  const fill = store.filledCount(color.id);
+  const complete = fill === SLOTS_PER_BOARD;
+
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="10" fill={color} opacity="0.18" />
+    <div>
+      <motion.button
+        layoutId={`hero-${color.id}`}
+        onClick={() => {
+          haptic("select");
+          onSelect(color.id);
+        }}
+        whileTap={{ scale: 0.95 }}
+        aria-label={`${color.name}, ${fill} of ${SLOTS_PER_BOARD} photos`}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 3,
+          width: "100%",
+          aspectRatio: "1 / 1",
+          borderRadius: 20,
+          overflow: "hidden",
+          background: hex,
+          boxShadow: color.needsBorder
+            ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
+            : "var(--tile-shadow)",
+        }}
+      >
+        {Array.from({ length: SLOTS_PER_BOARD }).map((_, i) => {
+          const photoId = slots[i];
+          return (
+            <div
+              key={i}
+              style={{
+                aspectRatio: "1 / 1",
+                overflow: "hidden",
+                background: hex,
+              }}
+            >
+              {photoId && <Thumbnail photoId={photoId} alt="" />}
+            </div>
+          );
+        })}
+      </motion.button>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          margin: "7px 3px 0",
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{color.name}</span>
+        {complete ? (
+          <CheckIcon />
+        ) : (
+          <span
+            style={{
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "var(--label-tertiary)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {fill}/{SLOTS_PER_BOARD}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <circle cx="10" cy="10" r="10" fill="var(--accent)" />
       <path
         d="M5.5 10.5l3 3 6-6.5"
-        stroke={color}
+        stroke="#fff"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
