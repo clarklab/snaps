@@ -1,29 +1,57 @@
-import { AnimatePresence, LayoutGroup } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { colorById } from "./colors";
 import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
+import { SampleCard } from "./components/SampleCard";
 import { Settings } from "./components/Settings";
 import { useToast } from "./components/Toast";
 import { useNetworkStatus } from "./lib/useNetworkStatus";
 import type { SwUpdateDetail } from "./lib/registerSW";
+import { safeGet, safeSet } from "./lib/safeStorage";
 import { startTransition } from "./lib/viewTransitions";
+import { TOUR_SEEN_KEY, useDemo } from "./state/demo";
+import { useStore } from "./state/store";
 
 export default function App() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userSelectedId, setSelectedId] = useState<string | null>(null);
+  const [userSettingsOpen, setSettingsOpen] = useState(false);
   // Intro state is initialized synchronously from localStorage so there's
   // no flicker on first paint: returning users render the home grid
   // immediately, first-time users render the intro immediately.
   const [introOpen, setIntroOpen] = useState(() => !introWasSeen());
+  const [tourSeen, setTourSeen] = useState(() => safeGet(TOUR_SEEN_KEY) === "1");
   const online = useNetworkStatus();
   const toast = useToast();
+  const store = useStore();
+  const demo = useDemo();
   const firstNetworkTick = useRef(true);
   const supportsVT = typeof document !== "undefined" && "startViewTransition" in document;
 
+  // While the guided tour plays it drives the view; otherwise the user's own
+  // navigation is in charge.
+  const selectedId = demo.running ? demo.selectedId : userSelectedId;
+  const settingsOpen = demo.running ? demo.settingsOpen : userSettingsOpen;
   const selected = selectedId ? colorById(selectedId) : undefined;
+
+  // First-run nudge: offer the tour on a clean board, once.
+  const showSampleCard =
+    !introOpen &&
+    !tourSeen &&
+    !demo.running &&
+    demo.available &&
+    store.totalFilled === 0;
+
+  const markTourSeen = () => {
+    safeSet(TOUR_SEEN_KEY, "1");
+    setTourSeen(true);
+  };
+  const startTour = () => {
+    markTourSeen();
+    demo.start();
+  };
 
   // Notify on going offline. Skip the very first effect tick so a user who
   // opens the app while offline doesn't get an immediate scolding toast.
@@ -60,7 +88,7 @@ export default function App() {
     const onReady = () => {
       toast.push({
         title: "Ready for offline",
-        detail: "Snaps Quest is fully cached on this device.",
+        detail: "Snaps is fully cached on this device.",
         tone: "info",
       });
     };
@@ -97,7 +125,7 @@ export default function App() {
             flexShrink: 0,
           }}
         >
-          Snaps Quest
+          Snaps
         </h1>
         <OverallProgress />
         <button
@@ -133,11 +161,29 @@ export default function App() {
             color={selected}
             supportsVT={supportsVT}
             onBack={closeColor}
+            forceMosaic={demo.running ? demo.mosaic : undefined}
           />
         )}
       </AnimatePresence>
 
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* First-run nudge to play the guided tour. */}
+      <AnimatePresence>
+        {showSampleCard && (
+          <SampleCard
+            key="sample-card"
+            onStart={startTour}
+            onDismiss={markTourSeen}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* While the tour plays, a transparent layer captures taps so the
+          choreography isn't fought by stray touches; tapping it skips. */}
+      <AnimatePresence>
+        {demo.running && <TourSkipLayer key="tour-skip" onSkip={demo.stop} />}
+      </AnimatePresence>
 
       {/* Intro overlay — covers everything on first launch. Once dismissed,
           the exit animation fades it away to reveal the home grid. */}
@@ -145,6 +191,52 @@ export default function App() {
         {introOpen && <Intro key="intro" onDone={() => setIntroOpen(false)} />}
       </AnimatePresence>
     </LayoutGroup>
+  );
+}
+
+/**
+ * Full-screen transparent catcher shown during the guided tour. It sits
+ * above every tour-driven surface so the user's taps don't interfere with
+ * the choreography, and offers a single, obvious "Skip" affordance.
+ */
+function TourSkipLayer({ onSkip }: { onSkip: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onSkip}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 90,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        // Transparent — the tour underneath stays fully visible.
+        background: "transparent",
+      }}
+    >
+      <motion.div
+        initial={{ y: -16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        style={{
+          marginTop: "calc(var(--safe-top) + 12px)",
+          padding: "8px 16px",
+          borderRadius: 999,
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          color: "#fff",
+          fontSize: 14,
+          fontWeight: 600,
+          pointerEvents: "none",
+        }}
+      >
+        Tap anywhere to skip
+      </motion.div>
+    </motion.div>
   );
 }
 

@@ -34,8 +34,8 @@ export default defineConfig({
         "fonts/*.woff2",
       ],
       manifest: {
-        name: "Snaps Quest",
-        short_name: "Snaps Quest",
+        name: "Snaps",
+        short_name: "Snaps",
         description:
           "Collect nine photos of nine colors. A local-first color photo game.",
         id: "/",

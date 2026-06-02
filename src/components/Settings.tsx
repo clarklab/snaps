@@ -188,7 +188,7 @@ export function Settings({
             margin: "10px 2px 0",
           }}
         >
-          Photos never leave your device. Snaps Quest keeps the original file
+          Photos never leave your device. Snaps keeps the original file
           bytes in your browser's local storage — nothing is uploaded or
           compressed.
         </p>

@@ -1,9 +1,9 @@
 {
-  "name": "snaps-quest",
+  "name": "snaps",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Snaps Quest — collect nine photos of nine colors. A local-first PWA.",
+  "description": "Snaps — collect nine photos of nine colors. A local-first PWA.",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

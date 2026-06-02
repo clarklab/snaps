@@ -1,8 +1,8 @@
-# Snaps Quest
+# Snaps
 
 Colors: you gotta catch 'em all.
 
-**Snaps Quest** is a local-first, cross-platform photo game that runs in the
+**Snaps** is a local-first, cross-platform photo game that runs in the
 browser on iOS and Android (and desktop). You get a 3×3 board of nine colors
 arranged like a rainbow. Tap a color and it expands into its own 3×3 board of
 empty slots — your job is to fill all nine with photos of things in that color.
@@ -102,7 +102,7 @@ worker and subsequent visits work offline.
 Everything stays on the device. Originals are stored verbatim and only ever
 downscaled for the on-screen thumbnail; the full-screen viewer reads the
 original bytes back. Because storage is per-browser, clearing site data (or
-deleting the installed app) removes the photos from Snaps Quest — the originals
+deleting the installed app) removes the photos from Snaps — the originals
 in your camera roll are of course untouched.
 
 ---

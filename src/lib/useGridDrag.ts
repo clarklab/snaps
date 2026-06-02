@@ -87,6 +87,15 @@ export function useGridDrag(opts: {
       let timer: number | null = null;
       let dragging = false;
 
+      // Mobile browsers fire a `contextmenu` (and show the "open in new
+      // tab / download image" callout) right around the long-press
+      // threshold — exactly when we're arming a drag. Swallow it for the
+      // duration of this press so the long-press only ever rearranges the
+      // grid. Capture phase + the per-press lifetime keeps it from
+      // interfering with anything else.
+      const onContextMenu = (ev: Event) => ev.preventDefault();
+      window.addEventListener("contextmenu", onContextMenu, { capture: true });
+
       const cleanup = () => {
         if (timer) {
           clearTimeout(timer);
@@ -95,6 +104,9 @@ export function useGridDrag(opts: {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onCancel);
+        window.removeEventListener("contextmenu", onContextMenu, {
+          capture: true,
+        });
       };
 
       const onMove = (ev: PointerEvent) => {

@@ -39,7 +39,7 @@ interface Frame {
 const FRAMES: Frame[] = [
   {
     src: "/intro/intro-1.webp",
-    text: "We're going on a colorful snaps quest!",
+    text: "We're going on a colorful snaps adventure!",
   },
   {
     src: "/intro/intro-2.webp",
@@ -117,10 +117,10 @@ export function Intro({ onDone }: { onDone: () => void }) {
   const installLabel = install.isStandalone
     ? "App installed"
     : install.canInstall
-      ? "Install App"
+      ? "Install Snaps"
       : install.needsManualInstructions
         ? "Add to Home Screen"
-        : "Install App";
+        : "Install Snaps";
 
   const frame = FRAMES[idx];
 

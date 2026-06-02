@@ -99,6 +99,10 @@ export function Thumbnail({
       ref={handleImgRef}
       src={url}
       alt={alt}
+      // Never let the browser treat the photo as a draggable/long-pressable
+      // asset — that's what pops the native "open / save image" callout that
+      // fights our long-press-to-rearrange gesture.
+      draggable={false}
       onLoad={() => setLoaded(true)}
       initial={{ opacity: 0, scale: 0.55, rotate: rotateFrom }}
       animate={
@@ -120,6 +124,12 @@ export function Thumbnail({
         // Hint the compositor so the transform animation stays smooth
         // even when many thumbnails animate concurrently.
         willChange: "transform, opacity",
+        // Suppress the iOS long-press image callout + text selection so the
+        // long-press only triggers our drag-to-rearrange.
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        pointerEvents: "none",
       }}
     />
   );
