@@ -148,26 +148,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
     >
       <WatercolorFilter />
 
-      {/* Skip in the corner — quiet, doesn't compete with the install CTA.
-          Colors are pinned to light-theme values since the white bg
-          stays white regardless of the device theme. */}
-      <button
-        onClick={dismiss}
-        style={{
-          position: "absolute",
-          top: "calc(var(--safe-top) + 16px)",
-          right: 18,
-          color: "rgba(60, 60, 67, 0.6)",
-          fontSize: 14,
-          fontWeight: 500,
-          padding: "6px 10px",
-          borderRadius: 8,
-        }}
-        aria-label="Skip intro"
-      >
-        Skip
-      </button>
-
       {/* Image + caption are vertically centered together as one block in
           the space between Skip and the CTA so the caption sits close
           beneath the illustration (storybook spread, not split layout). */}
