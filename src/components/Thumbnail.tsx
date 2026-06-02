@@ -18,11 +18,13 @@ export function Thumbnail({
   objectFit?: "cover" | "contain";
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let alive = true;
     let objectUrl: string | null = null;
     setUrl(null);
+    setLoaded(false);
 
     getPhoto(photoId).then((rec) => {
       if (!rec || !alive) return;
@@ -53,11 +55,14 @@ export function Thumbnail({
     <img
       src={url}
       alt={alt}
+      onLoad={() => setLoaded(true)}
       style={{
         width: "100%",
         height: "100%",
         objectFit,
         display: "block",
+        opacity: loaded ? 1 : 0,
+        transition: "opacity 0.28s ease",
       }}
     />
   );

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "uidotsh": {
+      "type": "http",
+      "url": "https://ui.sh/mcp?token=${UIDOTSH_TOKEN}"
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { colorById } from "./colors";
 import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
+import { OverallProgress } from "./components/OverallProgress";
 import { Settings } from "./components/Settings";
 
 export default function App() {
@@ -13,25 +14,36 @@ export default function App() {
 
   return (
     <LayoutGroup>
-      {/* Home */}
+      {/* Home — single top row: title · progress · settings */}
       <header
         style={{
           display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          padding: "calc(var(--safe-top) + 14px) 18px 6px",
+          alignItems: "center",
+          gap: 12,
+          padding: "calc(var(--safe-top) + 12px) 16px 10px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: -0.3 }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 19,
+            fontWeight: 700,
+            letterSpacing: -0.2,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
           Snaps Quest
         </h1>
+        <OverallProgress />
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Settings"
           style={{
-            width: 38,
-            height: 38,
+            width: 36,
+            height: 36,
             borderRadius: 999,
+            flexShrink: 0,
             background: "var(--fill-quaternary)",
             color: "var(--label)",
             display: "grid",

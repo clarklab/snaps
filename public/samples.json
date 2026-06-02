@@ -1,0 +1,591 @@
+{
+  "source": "unsplash",
+  "generatedAt": "2026-06-01T23:41:15.582399+00:00",
+  "colors": {
+    "red": [
+      {
+        "url": "/samples/red/0.webp",
+        "alt": "a red and black pattern with arches and arches",
+        "author": "Europeana",
+        "authorUrl": "https://unsplash.com/@europeana?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-red-and-black-pattern-with-arches-and-arches-XAcnGbfzBqI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/1.webp",
+        "alt": "pink fruit hanging from branch",
+        "author": "Ketan Wagh",
+        "authorUrl": "https://unsplash.com/@thekphotoz?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/pink-fruit-hanging-from-branch-t0dEVs6f304?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/2.webp",
+        "alt": "a close up of a red car with trees in the background",
+        "author": "Adam Patterson",
+        "authorUrl": "https://unsplash.com/@adampatterson?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-red-car-with-trees-in-the-background-Ws7VO2tJWVg?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/3.webp",
+        "alt": "white bicycle parked beside wall",
+        "author": "Brennan Ehrhardt",
+        "authorUrl": "https://unsplash.com/@bje1992?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-bicycle-parked-beside-wall-HALe2SmkWAI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/4.webp",
+        "alt": "A doorway with steps leading up to it",
+        "author": "Rishi Popat",
+        "authorUrl": "https://unsplash.com/@rishipopat?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-doorway-with-steps-leading-up-to-it-Fcy5Ini0Vh8?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/5.webp",
+        "alt": "A lady bug sitting on top of a red flower",
+        "author": "Alexandre Daoust",
+        "authorUrl": "https://unsplash.com/@alexandredaoust?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-lady-bug-sitting-on-top-of-a-red-flower-oXaCKWvzJyM?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/6.webp",
+        "alt": "red flower with black and yellow ladybug",
+        "author": "Gabriel Komorov",
+        "authorUrl": "https://unsplash.com/@komga?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/red-flower-with-black-and-yellow-ladybug-JmIR6iUkiRk?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/7.webp",
+        "alt": "a person standing in front of a building with red doors",
+        "author": "Gerwin Weiher",
+        "authorUrl": "https://unsplash.com/@gweiher?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-person-standing-in-front-of-a-building-with-red-doors-PCE0xVVT7yY?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/red/8.webp",
+        "alt": "a close up of a red flower near a fence",
+        "author": "Robert Allen",
+        "authorUrl": "https://unsplash.com/@robertjoshuaallen?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-red-flower-near-a-fence-q4HQ8WykZYs?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "orange": [
+      {
+        "url": "/samples/orange/0.webp",
+        "alt": "orange fruit with orange background",
+        "author": "Photoholgic",
+        "authorUrl": "https://unsplash.com/@photoholgic?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/orange-fruit-with-orange-background-ALLAhxXsZYg?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/1.webp",
+        "alt": "a tall building with lots of windows next to a sky",
+        "author": "Simeon Galabov",
+        "authorUrl": "https://unsplash.com/@simeongalabov?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-tall-building-with-lots-of-windows-next-to-a-sky-zpz5eOJBtrA?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/2.webp",
+        "alt": "A yellow building with a no left turn sign on it",
+        "author": "Connie de Vries",
+        "authorUrl": "https://unsplash.com/@conniedevries?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-yellow-building-with-a-no-left-turn-sign-on-it-4reIArOuWHQ?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/3.webp",
+        "alt": "orange lamborghini aventador parked in front of white building",
+        "author": "Andre Tan",
+        "authorUrl": "https://unsplash.com/@andredantan19?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/orange-lamborghini-aventador-parked-in-front-of-white-building-umd7qYV0uvM?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/4.webp",
+        "alt": "A man standing in front of a yellow building",
+        "author": "Cheng Lin",
+        "authorUrl": "https://unsplash.com/@lin_cheng?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-man-standing-in-front-of-a-yellow-building-n2SWWxnveZ0?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/5.webp",
+        "alt": "A white room with a red door and a white wall",
+        "author": "Declan Sun",
+        "authorUrl": "https://unsplash.com/@declansun?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-white-room-with-a-red-door-and-a-white-wall-QYfvMITKZEQ?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/6.webp",
+        "alt": "A large room with a lot of lights on the ceiling",
+        "author": "Declan Sun",
+        "authorUrl": "https://unsplash.com/@declansun?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-large-room-with-a-lot-of-lights-on-the-ceiling-olA9_xVuimU?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/7.webp",
+        "alt": "a cat sitting on a set of stairs",
+        "author": "CrowN",
+        "authorUrl": "https://unsplash.com/@cosmicomicfox?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-cat-sitting-on-a-set-of-stairs-JI2GekhK61o?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/orange/8.webp",
+        "alt": "A butterfly rests on a potted plant on a wall.",
+        "author": "Paulo Pescada",
+        "authorUrl": "https://unsplash.com/@paulo_pescada?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-butterfly-rests-on-a-potted-plant-on-a-wall-qL5E38Z2h68?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "yellow": [
+      {
+        "url": "/samples/yellow/0.webp",
+        "alt": "black plant on yellow background",
+        "author": "Natascha Maksimovic",
+        "authorUrl": "https://unsplash.com/@nat_maks?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-plant-on-yellow-background-EWUiXoAOj0k?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/1.webp",
+        "alt": "yellow wooden door between yellow wall",
+        "author": "Karla Caloca",
+        "authorUrl": "https://unsplash.com/@karlacaloca?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/yellow-wooden-door-between-yellow-wall-JlL1GumRqJ4?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/2.webp",
+        "alt": "yellow sunflower in brown ice cream cone",
+        "author": "Shamblen Studios",
+        "authorUrl": "https://unsplash.com/@shamblenstudios?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/yellow-sunflower-in-brown-ice-cream-cone-YmA-RuaK8JI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/3.webp",
+        "alt": "black and yellow bee on yellow flower",
+        "author": "Victor G",
+        "authorUrl": "https://unsplash.com/@victor_vector?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-and-yellow-bee-on-yellow-flower-bS23wWWgpAc?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/4.webp",
+        "alt": "a bunch of yellow flowers with green centers",
+        "author": "James Tiet",
+        "authorUrl": "https://unsplash.com/@jamestiet?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-bunch-of-yellow-flowers-with-green-centers-vdQAOd7B3lc?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/5.webp",
+        "alt": "yellow flower in macro lens",
+        "author": "Sajid Khan",
+        "authorUrl": "https://unsplash.com/@sajidnsr?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/yellow-flower-in-macro-lens-DJ-HuCV-ZvI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/6.webp",
+        "alt": "bee pollinating flower",
+        "author": "Duncan Sanchez",
+        "authorUrl": "https://unsplash.com/@joseph3088?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/bee-pollinating-flower-8Q6A7q7IKzw?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/7.webp",
+        "alt": "Wooden door next to a blooming yellow flower bush.",
+        "author": "Stacy",
+        "authorUrl": "https://unsplash.com/@stacysuxx?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/wooden-door-next-to-a-blooming-yellow-flower-bush-Bv-bnj0U4lw?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/yellow/8.webp",
+        "alt": "Close-up of a yellow vintage car wheel",
+        "author": "Shaturniano Photography",
+        "authorUrl": "https://unsplash.com/@shaturniano_photography?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/close-up-of-a-yellow-vintage-car-wheel-TkbvDBKUWnk?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "green": [
+      {
+        "url": "/samples/green/0.webp",
+        "alt": "shallow focus photography of green leaf",
+        "author": "Mark Boss",
+        "authorUrl": "https://unsplash.com/@vork?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/shallow-focus-photography-of-green-leaf-KFgDHayM2wI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/1.webp",
+        "alt": "a close up of a grass field",
+        "author": "Subhan Shahzad",
+        "authorUrl": "https://unsplash.com/@subhan_hun?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-grass-field-MYrYUH5YMC8?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/2.webp",
+        "alt": "a close up of a plant with green leaves",
+        "author": "Suri Huang",
+        "authorUrl": "https://unsplash.com/@fukayamamo?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-plant-with-green-leaves-cSodBmVowzE?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/3.webp",
+        "alt": "a close up of a green branch of a tree",
+        "author": "Imad Sidki",
+        "authorUrl": "https://unsplash.com/@imadsvision?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-green-branch-of-a-tree-3OffLYagh-E?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/4.webp",
+        "alt": "a close up of a green plant with leaves",
+        "author": "Daniel Salcius",
+        "authorUrl": "https://unsplash.com/@dsalcius?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-green-plant-with-leaves-xQXfg0bOwxc?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/5.webp",
+        "alt": "a leafy branch hangs over a body of water",
+        "author": "Gilbert Ng",
+        "authorUrl": "https://unsplash.com/@zhekai_39?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-leafy-branch-hangs-over-a-body-of-water-7Geb0TzB0ZY?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/6.webp",
+        "alt": "white and green wall paint",
+        "author": "Yuko Tanaka",
+        "authorUrl": "https://unsplash.com/@luckymonkey?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-and-green-wall-paint-hKmSvVlLxy8?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/7.webp",
+        "alt": "green plant in close up photography",
+        "author": "Kailash Sankar",
+        "authorUrl": "https://unsplash.com/@there_is_no_spoon?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/green-plant-in-close-up-photography-r-X1xe1p0eI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/green/8.webp",
+        "alt": "green leaves in macro lens",
+        "author": "Gonzagraph",
+        "authorUrl": "https://unsplash.com/@gonzagraph?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/green-leaves-in-macro-lens-Nc48DyZknQc?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "blue": [
+      {
+        "url": "/samples/blue/0.webp",
+        "alt": "a boat is out in the ocean on a clear day",
+        "author": "Rui Klova",
+        "authorUrl": "https://unsplash.com/@ruiklova?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-boat-is-out-in-the-ocean-on-a-clear-day-XKXGghL7GQc?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/1.webp",
+        "alt": "a silver car on a white background",
+        "author": "Hyundai Motor Group",
+        "authorUrl": "https://unsplash.com/@hyundaimotorgroup?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-silver-car-on-a-white-background-rOH384ox7Eg?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/2.webp",
+        "alt": "white ribbon",
+        "author": "DDP",
+        "authorUrl": "https://unsplash.com/@moino007?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-ribbon-ByE8ZFRm1l8?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/3.webp",
+        "alt": "white boat on sea during daytime",
+        "author": "Mauro Gigli",
+        "authorUrl": "https://unsplash.com/@maurogigliphoto?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-boat-on-sea-during-daytime-fzcKk1uGj6o?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/4.webp",
+        "alt": "people on beach during daytime",
+        "author": "Yaopey Yong",
+        "authorUrl": "https://unsplash.com/@yaopey?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/people-on-beach-during-daytime-kfpHdZ4RDEA?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/5.webp",
+        "alt": "white boat on sea during daytime",
+        "author": "Fadrian Dwiki Maulanda",
+        "authorUrl": "https://unsplash.com/@fadriandwiki?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-boat-on-sea-during-daytime-8RcWx4Fev-g?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/6.webp",
+        "alt": "red boat",
+        "author": "Vinoth Ragunathan",
+        "authorUrl": "https://unsplash.com/@helvetiica?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/red-boat-2Esmot6dU30?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/7.webp",
+        "alt": "black car on bridge under cloudy sky during daytime",
+        "author": "Addy Mae",
+        "authorUrl": "https://unsplash.com/@addymae?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-car-on-bridge-under-cloudy-sky-during-daytime-_JoNVdDoKyw?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/blue/8.webp",
+        "alt": "a wall with a fan and a door with a picture on it",
+        "author": "Thanachot Thanachot",
+        "authorUrl": "https://unsplash.com/@flowerandfriends?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-wall-with-a-fan-and-a-door-with-a-picture-on-it-5O2Qs8HJ4Y4?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "purple": [
+      {
+        "url": "/samples/purple/0.webp",
+        "alt": "purple flower in macro lens",
+        "author": "Dominik Scythe",
+        "authorUrl": "https://unsplash.com/@drscythe?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/purple-flower-in-macro-lens-jRnCf2bVchM?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/1.webp",
+        "alt": "an abstract purple background with wavy lines",
+        "author": "Daniele Levis Pelusi",
+        "authorUrl": "https://unsplash.com/@yogidan2012?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/an-abstract-purple-background-with-wavy-lines-eSThfXZ0GLo?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/2.webp",
+        "alt": "black round fruit on purple background",
+        "author": "Benoit PAILLEY",
+        "authorUrl": "https://unsplash.com/@benoitpailley?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-round-fruit-on-purple-background-MZSpXIYBtlI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/3.webp",
+        "alt": "a purple and blue background with stars",
+        "author": "Murphy Zheng",
+        "authorUrl": "https://unsplash.com/@murph_zheng?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-purple-and-blue-background-with-stars-7MKE0JMXqQk?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/4.webp",
+        "alt": "man in black long sleeve shirt",
+        "author": "Joe Samuel",
+        "authorUrl": "https://unsplash.com/@cam5amuel?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/man-in-black-long-sleeve-shirt-0Al3V45PgVk?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/5.webp",
+        "alt": "purple flower in macro shot",
+        "author": "Alexander Van Steenberge",
+        "authorUrl": "https://unsplash.com/@lexerium?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/purple-flower-in-macro-shot-lOkDngSvJSQ?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/6.webp",
+        "alt": "purple flower in bloom during daytime",
+        "author": "daisies & dots",
+        "authorUrl": "https://unsplash.com/@daisies_and_dots?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/purple-flower-in-bloom-during-daytime-DMVtD2pAtPo?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/7.webp",
+        "alt": "purple flower in macro shot",
+        "author": "Jon Leona",
+        "authorUrl": "https://unsplash.com/@yourjoniverse?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/purple-flower-in-macro-shot-ACgnTdBLMkg?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/purple/8.webp",
+        "alt": "purple flower in macro shot",
+        "author": "Trevor Gerzen",
+        "authorUrl": "https://unsplash.com/@tgerz?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/purple-flower-in-macro-shot-jh-5Bj8nuWI?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "pink": [
+      {
+        "url": "/samples/pink/0.webp",
+        "alt": "Cracked pink wall with abstract purple markings",
+        "author": "Tasha Kostyuk",
+        "authorUrl": "https://unsplash.com/@tashakostyuk?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/cracked-pink-wall-with-abstract-purple-markings-ZAMvTGdWTgQ?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/1.webp",
+        "alt": "pink flower in macro shot",
+        "author": "Jei Lee",
+        "authorUrl": "https://unsplash.com/@babybluecat?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/pink-flower-in-macro-shot-l6TRMVHjfAE?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/2.webp",
+        "alt": "purple flowers in black background",
+        "author": "vivek sharma",
+        "authorUrl": "https://unsplash.com/@vkysharma?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/purple-flowers-in-black-background-UGuka37RFk8?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/3.webp",
+        "alt": "A close up of a pink flower on a plant",
+        "author": "Mahdi Mahmoodi",
+        "authorUrl": "https://unsplash.com/@iremia?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-pink-flower-on-a-plant-e2YieuC6vW0?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/4.webp",
+        "alt": "macro photo of flowers",
+        "author": "Cristiane Teston",
+        "authorUrl": "https://unsplash.com/@cristiane?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/macro-photo-of-flowers-y-5pd18ETbg?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/5.webp",
+        "alt": "a close up of a pink flower with a white center",
+        "author": "Joe Halinar",
+        "authorUrl": "https://unsplash.com/@jhalinar?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-pink-flower-with-a-white-center-JBVDLCcyeSw?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/6.webp",
+        "alt": "a close up of a pink flower with green leaves",
+        "author": "Nancy Hughes",
+        "authorUrl": "https://unsplash.com/@mostlymarvelling?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-pink-flower-with-green-leaves-tlII3yTVW1k?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/7.webp",
+        "alt": "a pink wall with a doorway and a light at the end",
+        "author": "analuisa gamboa",
+        "authorUrl": "https://unsplash.com/@anigmb?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-pink-wall-with-a-doorway-and-a-light-at-the-end-iFfuC2ERMnM?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/pink/8.webp",
+        "alt": "pink and white concrete building",
+        "author": "Joshua Fernandez",
+        "authorUrl": "https://unsplash.com/@joshuafernandez?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/pink-and-white-concrete-building-79R09eKq-yg?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "black": [
+      {
+        "url": "/samples/black/0.webp",
+        "alt": "a cat looking at the camera",
+        "author": "Raphael Tartaruga",
+        "authorUrl": "https://unsplash.com/@raphaelmurat?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-cat-looking-at-the-camera-l6yHEjFnIrA?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/1.webp",
+        "alt": "black vehicle speedometer",
+        "author": "Aswin Thomas Bony",
+        "authorUrl": "https://unsplash.com/@aswintb?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-vehicle-speedometer-JUu1IMsH32Y?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/2.webp",
+        "alt": "a black car is shown in the dark",
+        "author": "Hyundai Motor Group",
+        "authorUrl": "https://unsplash.com/@hyundaimotorgroup?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-black-car-is-shown-in-the-dark-7cI1Ecb74ss?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/3.webp",
+        "alt": "a black mercedes benz benz benz benz benz benz benz benz benz benz benz benz benz",
+        "author": "P\u00e9ter T\u00f6r\u00f6k",
+        "authorUrl": "https://unsplash.com/@peti223?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-black-mercedes-benz-benz-benz-benz-benz-benz-benz-benz-benz-benz-benz-benz-benz-akzUFT_Ox-M?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/4.webp",
+        "alt": "black vehicle",
+        "author": "Szabo Viktor",
+        "authorUrl": "https://unsplash.com/@vmxhu?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-vehicle-ET2OIq7dabI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/5.webp",
+        "alt": "a black and white photo of a cat",
+        "author": "themoonfallnow .",
+        "authorUrl": "https://unsplash.com/@themoonfallnow?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-black-and-white-photo-of-a-cat-EQCCJrLoIIs?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/6.webp",
+        "alt": "greyscale close-up photo of cat",
+        "author": "zhan zhang",
+        "authorUrl": "https://unsplash.com/@pllnt?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/greyscale-close-up-photo-of-cat-4HNQ_231YQw?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/7.webp",
+        "alt": "black cat on white textile",
+        "author": "- Kenny",
+        "authorUrl": "https://unsplash.com/@kennyzhang29?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/black-cat-on-white-textile-G-1En9Ue_Oc?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/black/8.webp",
+        "alt": "the dashboard of a car with a speedometer and gauges",
+        "author": "Ivan Kazlouskij",
+        "authorUrl": "https://unsplash.com/@ivankazlouskij?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/the-dashboard-of-a-car-with-a-speedometer-and-gauges-lRJjAmHPJFU?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ],
+    "white": [
+      {
+        "url": "/samples/white/0.webp",
+        "alt": "green leaf plant",
+        "author": "Mutzii",
+        "authorUrl": "https://unsplash.com/@mutzii?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/green-leaf-plant-5LzqIXEedwY?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/1.webp",
+        "alt": "white and black flower in white background",
+        "author": "Jocelyn Morales",
+        "authorUrl": "https://unsplash.com/@molnj?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-and-black-flower-in-white-background-ybDvbCvh9Ro?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/2.webp",
+        "alt": "a tall building with a clock on the side of it",
+        "author": "Mitchell Luo",
+        "authorUrl": "https://unsplash.com/@mitchel3uo?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-tall-building-with-a-clock-on-the-side-of-it-wz6jcqgse9E?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/3.webp",
+        "alt": "grayscale photography of leafed plant",
+        "author": "R Madhudi",
+        "authorUrl": "https://unsplash.com/@rmm?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/grayscale-photography-of-leafed-plant-ti7i7VQ-BxM?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/4.webp",
+        "alt": "woman wearing white spaghetti-strap shirt",
+        "author": "Mutzii",
+        "authorUrl": "https://unsplash.com/@mutzii?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/woman-wearing-white-spaghetti-strap-shirt-nkaWn3SpIuI?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/5.webp",
+        "alt": "a close-up of a flower",
+        "author": "Amlanjyoti Lahkar",
+        "authorUrl": "https://unsplash.com/@amlanjyotilahkar?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-close-up-of-a-flower-ejBF-g_kx64?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/6.webp",
+        "alt": "white and black concrete building",
+        "author": "Rowan Heuvel",
+        "authorUrl": "https://unsplash.com/@insolitus?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-and-black-concrete-building-7KuKcFi5nhY?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/7.webp",
+        "alt": "white and green flower on white ceramic vase",
+        "author": "Hayley Maxwell",
+        "authorUrl": "https://unsplash.com/@hayleymaxwell?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/white-and-green-flower-on-white-ceramic-vase-wrbbCU6KJSU?utm_source=snaps_quest&utm_medium=referral"
+      },
+      {
+        "url": "/samples/white/8.webp",
+        "alt": "a black and white photo of some plants",
+        "author": "Annie Spratt",
+        "authorUrl": "https://unsplash.com/@anniespratt?utm_source=snaps_quest&utm_medium=referral",
+        "link": "https://unsplash.com/photos/a-black-and-white-photo-of-some-plants-z0FUVnylgrU?utm_source=snaps_quest&utm_medium=referral"
+      }
+    ]
+  }
+}

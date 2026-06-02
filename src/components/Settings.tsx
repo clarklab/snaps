@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../colors";
 import { estimateUsage } from "../lib/db";
+import { haptic } from "../lib/haptics";
+import { useSampleLoader } from "../state/useSampleLoader";
 import { useStore } from "../state/store";
 import { useTheme, type AppearanceMode } from "../state/theme";
+import { ProgressBar } from "./Progress";
 import { Sheet } from "./Sheet";
 
 const MODES: { id: AppearanceMode; label: string }[] = [
@@ -22,6 +25,14 @@ export function Settings({
   const store = useStore();
   const [usage, setUsage] = useState<string | null>(null);
 
+  const {
+    available: samplesAvailable,
+    seeding,
+    progress,
+    note,
+    load,
+  } = useSampleLoader();
+
   useEffect(() => {
     if (!open) return;
     estimateUsage().then((bytes) => {
@@ -30,6 +41,17 @@ export function Settings({
       setUsage(mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`);
     });
   }, [open]);
+
+  const handleLoadSamples = async () => {
+    haptic("select");
+    const placed = await load();
+    if (placed) haptic("success");
+  };
+
+  const handleClearSamples = () => {
+    haptic("tap");
+    void store.clearSamples();
+  };
 
   return (
     <Sheet open={open} onClose={onClose}>
@@ -94,6 +116,66 @@ export function Settings({
           value={`${store.completedColors} of ${COLORS.length}`}
         />
 
+        {samplesAvailable && (
+          <>
+            <SectionLabel style={{ marginTop: 22 }}>Sample boards</SectionLabel>
+            {seeding ? (
+              <div style={{ padding: "4px 2px 2px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 14,
+                    marginBottom: 8,
+                    color: "var(--label-secondary)",
+                  }}
+                >
+                  <span>Loading example photos…</span>
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {progress.done} / {progress.total || "…"}
+                  </span>
+                </div>
+                <ProgressBar
+                  value={progress.done}
+                  total={progress.total || 1}
+                  tint="var(--accent)"
+                />
+              </div>
+            ) : store.hasSamples ? (
+              <BigButton destructive onClick={handleClearSamples}>
+                Remove sample photos
+              </BigButton>
+            ) : (
+              <>
+                <BigButton onClick={handleLoadSamples}>Load sample boards</BigButton>
+                <p
+                  style={{
+                    fontSize: 12.5,
+                    lineHeight: 1.45,
+                    color: "var(--label-secondary)",
+                    margin: "10px 2px 0",
+                  }}
+                >
+                  Fills your empty boards with curated single-color photos so you
+                  can see finished collages. Photos from Unsplash.
+                </p>
+              </>
+            )}
+            {note && (
+              <p
+                style={{
+                  fontSize: 12.5,
+                  lineHeight: 1.45,
+                  color: "var(--label-secondary)",
+                  margin: "10px 2px 0",
+                }}
+              >
+                {note}
+              </p>
+            )}
+          </>
+        )}
+
         <SectionLabel style={{ marginTop: 22 }}>Your Photos</SectionLabel>
         <Row label="Storage" value="On this device" />
         <Row label="Quality" value="Original, uncompressed" />
@@ -147,6 +229,34 @@ function SectionLabel({
     >
       {children}
     </div>
+  );
+}
+
+function BigButton({
+  children,
+  onClick,
+  destructive,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "block",
+        width: "100%",
+        padding: "14px 16px",
+        borderRadius: 14,
+        background: "var(--fill-quaternary)",
+        fontSize: 16,
+        fontWeight: 600,
+        color: destructive ? "#ff453a" : "var(--accent)",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
