@@ -1,21 +1,16 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { haptic } from "../lib/haptics";
 import { safeGet, safeSet } from "../lib/safeStorage";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useToast } from "./Toast";
 
 /**
- * First-run intro overlay. Three illustrated frames cycle in a smooth
- * loop with a watercolor-bleed transition between them. A persistent
- * "Install App" button triggers the native add-to-home-screen flow when
- * the browser supports it; a small Skip link dismisses the overlay.
- *
- * The "watercolor" effect is achieved by:
- *   1. A persistent SVG filter (turbulence + small displacement) that
- *      gives each frame a subtle painted edge in steady state.
- *   2. Strong blur + saturate during enter/exit transitions, so frames
- *      bloom in and wash out like watercolor on wet paper.
+ * First-run intro overlay. Three illustrated frames cycle in a smooth loop,
+ * each frame crossfading softly into the next, with the caption fading in
+ * beneath it. A persistent "Install Snaps" button triggers the native
+ * add-to-home-screen flow when the browser supports it; "Maybe later"
+ * dismisses the overlay.
  *
  * The intro is shown only once per device (persisted via localStorage),
  * unless the user explicitly resets it from Settings (future hook).
@@ -58,17 +53,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
   const [idx, setIdx] = useState(0);
   const install = useInstallPrompt();
   const toast = useToast();
-  const reducedMotion = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-    [],
-  );
-
-  // Refs into the live SVG filter so we can animate the ink-bleed per
-  // transition without re-rendering React every frame.
-  const dispRef = useRef<SVGFEDisplacementMapElement>(null);
-  const turbRef = useRef<SVGFETurbulenceElement>(null);
 
   // Auto-advance the loop. A single setTimeout per frame is essentially
   // free; we don't bother pausing on visibilitychange because backgrounded
@@ -87,42 +71,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
     const img = new Image();
     img.src = next;
   }, [idx]);
-
-  // Ink bleed: on every frame change, ramp the SVG displacement up to a
-  // peak at the midpoint of the crossfade, then settle back to a gentle
-  // painterly warp. Paired with the blur/saturate bloom on the images, the
-  // edges smear and re-form like wet pigment soaking into paper instead of
-  // a flat dissolve. Driven imperatively (no React re-render per frame) and
-  // skipped entirely under reduced-motion.
-  useEffect(() => {
-    if (reducedMotion) return;
-    const disp = dispRef.current;
-    const turb = turbRef.current;
-    if (!disp || !turb) return;
-
-    const PEAK = 34; // px of edge displacement at the height of the bleed
-    const REST = 2; // gentle warp left behind so steady frames look painted
-    let raf = 0;
-    const start = performance.now();
-
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / TRANSITION_MS);
-      // Smooth 0 → 1 → 0 bell so the smear blooms and recedes symmetrically.
-      const bell = Math.sin(Math.PI * t);
-      disp.setAttribute("scale", (REST + PEAK * bell).toFixed(2));
-      // The noise grows finer at the peak so the bleed reads as many small
-      // splotches spreading, then coarsens back as it settles.
-      turb.setAttribute("baseFrequency", (0.012 + 0.022 * bell).toFixed(4));
-      if (t < 1) {
-        raf = requestAnimationFrame(step);
-      } else {
-        disp.setAttribute("scale", String(REST));
-        turb.setAttribute("baseFrequency", "0.012");
-      }
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [idx, reducedMotion]);
 
   const dismiss = () => {
     safeSet(INTRO_SEEN_KEY, "1");
@@ -187,8 +135,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
         paddingBottom: "calc(var(--safe-bottom) + 28px)",
       }}
     >
-      <WatercolorFilter dispRef={dispRef} turbRef={turbRef} />
-
       {/* Image + caption are vertically centered together as one block in
           the space between Skip and the CTA so the caption sits close
           beneath the illustration (storybook spread, not split layout). */}
@@ -226,39 +172,15 @@ export function Intro({ onDone }: { onDone: () => void }) {
               src={frame.src}
               alt=""
               draggable={false}
-              // url(#wc-bleed) is held across all three states so framer-motion
-              // only tweens the blur/saturate bloom while the filter's own
-              // displacement (animated imperatively above) does the smearing.
-              initial={
-                reducedMotion
-                  ? { opacity: 0 }
-                  : {
-                      opacity: 0,
-                      scale: 1.06,
-                      filter: "blur(16px) saturate(1.5) url(#wc-bleed)",
-                    }
-              }
-              animate={
-                reducedMotion
-                  ? { opacity: 1 }
-                  : {
-                      opacity: 1,
-                      scale: 1,
-                      filter: "blur(0px) saturate(1) url(#wc-bleed)",
-                    }
-              }
-              exit={
-                reducedMotion
-                  ? { opacity: 0 }
-                  : {
-                      opacity: 0,
-                      scale: 0.94,
-                      filter: "blur(20px) saturate(0.8) url(#wc-bleed)",
-                    }
-              }
+              // A clean, soft crossfade — both frames are absolutely
+              // positioned so the outgoing one fades out as the incoming
+              // one fades in, with no movement or filtering.
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{
                 duration: TRANSITION_MS / 1000,
-                ease: [0.32, 0.72, 0, 1],
+                ease: [0.4, 0, 0.2, 1],
               }}
               style={{
                 position: "absolute",
@@ -465,59 +387,3 @@ function RainbowInstallButton({
   );
 }
 
-/**
- * The SVG ink-bleed filter the frames pass through. `feTurbulence` feeds a
- * `feDisplacementMap` that warps the image edges; the `scale` (how far it
- * smears) and the turbulence frequency are animated imperatively during each
- * transition (see the rAF effect above) so frames bloom and re-form like wet
- * pigment rather than cross-dissolving. The filter is defined once and shared
- * by both the entering and leaving images so they smear together.
- */
-function WatercolorFilter({
-  dispRef,
-  turbRef,
-}: {
-  dispRef: React.Ref<SVGFEDisplacementMapElement>;
-  turbRef: React.Ref<SVGFETurbulenceElement>;
-}) {
-  return (
-    <svg
-      aria-hidden
-      style={{
-        position: "absolute",
-        width: 0,
-        height: 0,
-        pointerEvents: "none",
-      }}
-    >
-      <defs>
-        {/* Generous region so a big mid-transition displacement doesn't clip. */}
-        <filter
-          id="wc-bleed"
-          x="-20%"
-          y="-20%"
-          width="140%"
-          height="140%"
-          colorInterpolationFilters="sRGB"
-        >
-          <feTurbulence
-            ref={turbRef}
-            type="fractalNoise"
-            baseFrequency="0.012"
-            numOctaves="2"
-            seed="7"
-            result="noise"
-          />
-          <feDisplacementMap
-            ref={dispRef}
-            in="SourceGraphic"
-            in2="noise"
-            scale="2"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-    </svg>
-  );
-}
