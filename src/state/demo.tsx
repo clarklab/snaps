@@ -134,45 +134,48 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           setProgress({ done, total }),
         );
         setLoading(false);
-        await wait(900);
+        await wait(1000);
 
         // 2 — Open the Red board.
         nav("red");
-        await wait(850);
+        await wait(950);
 
         // 3 — Turn on its mosaic layout.
         setMosaic(true);
-        await wait(1000);
+        await wait(1100);
 
         // 4 — Open Settings and flip to dark mode.
         setSettingsOpen(true);
-        await wait(650);
+        await wait(700);
         setMode("dark");
-        await wait(950);
+        await wait(1050);
         setSettingsOpen(false);
-        await wait(550);
+        await wait(650);
 
         // 5 — Back to the (now dark) home grid.
         setMosaic(false);
         nav(null);
-        await wait(750);
+        await wait(900);
 
         // 6 — Open the Black board to show photos on the dark canvas.
         nav("black");
-        await wait(950);
+        await wait(1100);
 
         // 7 — Open Settings and flip back to light mode.
         setSettingsOpen(true);
-        await wait(650);
+        await wait(700);
         setMode("light");
-        await wait(950);
+        await wait(1050);
         setSettingsOpen(false);
-        await wait(550);
+        await wait(650);
 
-        // 8 — Home again, then clear the samples for a fresh board.
+        // 8 — Return all the way home and let the populated grid settle…
         nav(null);
-        await wait(800);
+        await wait(1100);
+        // …then clear the samples so the user watches the board empty out
+        // on the home screen (never while a board is still open).
         await store.clearSamples();
+        await wait(750);
 
         // Restore the user's own appearance choice and bow out.
         setMode(originalMode.current);
