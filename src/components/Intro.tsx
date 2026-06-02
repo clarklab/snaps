@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { haptic } from "../lib/haptics";
 import { safeGet, safeSet } from "../lib/safeStorage";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
@@ -65,6 +65,11 @@ export function Intro({ onDone }: { onDone: () => void }) {
     [],
   );
 
+  // Refs into the live SVG filter so we can animate the ink-bleed per
+  // transition without re-rendering React every frame.
+  const dispRef = useRef<SVGFEDisplacementMapElement>(null);
+  const turbRef = useRef<SVGFETurbulenceElement>(null);
+
   // Auto-advance the loop. A single setTimeout per frame is essentially
   // free; we don't bother pausing on visibilitychange because backgrounded
   // tabs already throttle JS timers heavily.
@@ -82,6 +87,42 @@ export function Intro({ onDone }: { onDone: () => void }) {
     const img = new Image();
     img.src = next;
   }, [idx]);
+
+  // Ink bleed: on every frame change, ramp the SVG displacement up to a
+  // peak at the midpoint of the crossfade, then settle back to a gentle
+  // painterly warp. Paired with the blur/saturate bloom on the images, the
+  // edges smear and re-form like wet pigment soaking into paper instead of
+  // a flat dissolve. Driven imperatively (no React re-render per frame) and
+  // skipped entirely under reduced-motion.
+  useEffect(() => {
+    if (reducedMotion) return;
+    const disp = dispRef.current;
+    const turb = turbRef.current;
+    if (!disp || !turb) return;
+
+    const PEAK = 34; // px of edge displacement at the height of the bleed
+    const REST = 2; // gentle warp left behind so steady frames look painted
+    let raf = 0;
+    const start = performance.now();
+
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / TRANSITION_MS);
+      // Smooth 0 → 1 → 0 bell so the smear blooms and recedes symmetrically.
+      const bell = Math.sin(Math.PI * t);
+      disp.setAttribute("scale", (REST + PEAK * bell).toFixed(2));
+      // The noise grows finer at the peak so the bleed reads as many small
+      // splotches spreading, then coarsens back as it settles.
+      turb.setAttribute("baseFrequency", (0.012 + 0.022 * bell).toFixed(4));
+      if (t < 1) {
+        raf = requestAnimationFrame(step);
+      } else {
+        disp.setAttribute("scale", String(REST));
+        turb.setAttribute("baseFrequency", "0.012");
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [idx, reducedMotion]);
 
   const dismiss = () => {
     safeSet(INTRO_SEEN_KEY, "1");
@@ -146,7 +187,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
         paddingBottom: "calc(var(--safe-bottom) + 28px)",
       }}
     >
-      <WatercolorFilter />
+      <WatercolorFilter dispRef={dispRef} turbRef={turbRef} />
 
       {/* Image + caption are vertically centered together as one block in
           the space between Skip and the CTA so the caption sits close
@@ -185,13 +226,16 @@ export function Intro({ onDone }: { onDone: () => void }) {
               src={frame.src}
               alt=""
               draggable={false}
+              // url(#wc-bleed) is held across all three states so framer-motion
+              // only tweens the blur/saturate bloom while the filter's own
+              // displacement (animated imperatively above) does the smearing.
               initial={
                 reducedMotion
                   ? { opacity: 0 }
                   : {
                       opacity: 0,
                       scale: 1.06,
-                      filter: "blur(14px) saturate(1.4)",
+                      filter: "blur(16px) saturate(1.5) url(#wc-bleed)",
                     }
               }
               animate={
@@ -200,7 +244,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
                   : {
                       opacity: 1,
                       scale: 1,
-                      filter: "blur(0px) saturate(1) url(#wc-edge)",
+                      filter: "blur(0px) saturate(1) url(#wc-bleed)",
                     }
               }
               exit={
@@ -209,7 +253,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
                   : {
                       opacity: 0,
                       scale: 0.94,
-                      filter: "blur(18px) saturate(0.85)",
+                      filter: "blur(20px) saturate(0.8) url(#wc-bleed)",
                     }
               }
               transition={{
@@ -230,12 +274,14 @@ export function Intro({ onDone }: { onDone: () => void }) {
         </div>
 
         {/* Caption that crossfades with the frame.
-            mode="wait" runs exit→enter sequentially so two captions never
-            stack on top of each other; the image crossfade above keeps
-            the frame visually present during that brief gap. */}
+            A FIXED height (tall enough for the longest two-line caption)
+            reserves the caption's space so the spot art above never shifts
+            as captions of different lengths swap in. mode="wait" runs
+            exit→enter sequentially so two captions never stack. */}
         <div
           style={{
-            minHeight: 56,
+            height: 88,
+            flexShrink: 0,
             width: "100%",
             display: "flex",
             alignItems: "center",
@@ -247,9 +293,11 @@ export function Intro({ onDone }: { onDone: () => void }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={idx}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
+            // Fade in place — no vertical travel — so the text appears exactly
+            // where it sits and never nudges the layout.
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
             style={{
               margin: 0,
@@ -418,12 +466,20 @@ function RainbowInstallButton({
 }
 
 /**
- * The SVG filter the frames use in steady state. `feTurbulence` plus a
- * small `feDisplacementMap` warps the edges a couple of pixels, which
- * combined with the bloom-in/wash-out blur transition reads as a
- * watercolor wash. The filter is defined once and reused.
+ * The SVG ink-bleed filter the frames pass through. `feTurbulence` feeds a
+ * `feDisplacementMap` that warps the image edges; the `scale` (how far it
+ * smears) and the turbulence frequency are animated imperatively during each
+ * transition (see the rAF effect above) so frames bloom and re-form like wet
+ * pigment rather than cross-dissolving. The filter is defined once and shared
+ * by both the entering and leaving images so they smear together.
  */
-function WatercolorFilter() {
+function WatercolorFilter({
+  dispRef,
+  turbRef,
+}: {
+  dispRef: React.Ref<SVGFEDisplacementMapElement>;
+  turbRef: React.Ref<SVGFETurbulenceElement>;
+}) {
   return (
     <svg
       aria-hidden
@@ -435,25 +491,28 @@ function WatercolorFilter() {
       }}
     >
       <defs>
+        {/* Generous region so a big mid-transition displacement doesn't clip. */}
         <filter
-          id="wc-edge"
-          x="-5%"
-          y="-5%"
-          width="110%"
-          height="110%"
+          id="wc-bleed"
+          x="-20%"
+          y="-20%"
+          width="140%"
+          height="140%"
           colorInterpolationFilters="sRGB"
         >
           <feTurbulence
+            ref={turbRef}
             type="fractalNoise"
-            baseFrequency="0.018"
+            baseFrequency="0.012"
             numOctaves="2"
-            seed="4"
+            seed="7"
             result="noise"
           />
           <feDisplacementMap
+            ref={dispRef}
             in="SourceGraphic"
             in2="noise"
-            scale="3.5"
+            scale="2"
             xChannelSelector="R"
             yChannelSelector="G"
           />
