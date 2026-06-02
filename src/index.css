@@ -26,13 +26,14 @@
   font-display: swap;
 }
 
-/* Fraunces (OFL) — used only on the intro captions for a warm,
-   children's-book serif feel. Single static cut (italic 600), Latin
-   subset, ~21 KB. */
+/* Averia Serif Libre (OFL) — used only on the intro captions. Designed
+   by averaging fonts together, so it carries a soft, hand-drawn wobble
+   that pairs naturally with the watercolor spot art. Italic 400, Latin
+   subset, ~41 KB. */
 @font-face {
-  font-family: "Fraunces";
-  src: url("/fonts/Fraunces-Italic-600.woff2") format("woff2");
-  font-weight: 600;
+  font-family: "Averia Serif Libre";
+  src: url("/fonts/AveriaSerifLibre-Italic.woff2") format("woff2");
+  font-weight: 400;
   font-style: italic;
   font-display: swap;
 }

@@ -135,8 +135,10 @@ export function Intro({ onDone }: { onDone: () => void }) {
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "var(--bg)",
-        color: "var(--label)",
+        // White matches the watercolor paper of the spot art, so the
+        // illustrations sit on the same surface as the rest of the page.
+        background: "#ffffff",
+        color: "#1c1c1e",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -146,14 +148,16 @@ export function Intro({ onDone }: { onDone: () => void }) {
     >
       <WatercolorFilter />
 
-      {/* Skip in the corner — quiet, doesn't compete with the install CTA. */}
+      {/* Skip in the corner — quiet, doesn't compete with the install CTA.
+          Colors are pinned to light-theme values since the white bg
+          stays white regardless of the device theme. */}
       <button
         onClick={dismiss}
         style={{
           position: "absolute",
           top: "calc(var(--safe-top) + 16px)",
           right: 18,
-          color: "var(--label-secondary)",
+          color: "rgba(60, 60, 67, 0.6)",
           fontSize: 14,
           fontWeight: 500,
           padding: "6px 10px",
@@ -174,7 +178,9 @@ export function Intro({ onDone }: { onDone: () => void }) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 18,
+          // Tight gap so the caption reads as a line beneath the spot art
+          // rather than a separate region.
+          gap: 4,
           width: "100%",
         }}
       >
@@ -263,18 +269,17 @@ export function Intro({ onDone }: { onDone: () => void }) {
             transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
             style={{
               margin: 0,
-              // Storybook serif (Fraunces italic 600) — warmer and more
-              // emotional than the system UI face. Slightly larger and
-              // looser tracking so it reads like a picture-book line.
+              // Averia Serif Libre italic — a soft, slightly-wobbly serif
+              // that reads as hand-painted text on the watercolor paper.
               fontFamily:
-                '"Fraunces", "Iowan Old Style", "Georgia", serif',
+                '"Averia Serif Libre", "Iowan Old Style", "Georgia", serif',
               fontStyle: "italic",
-              fontWeight: 600,
-              fontSize: 22,
-              lineHeight: 1.3,
-              letterSpacing: 0.1,
-              color: "var(--label)",
-              maxWidth: 360,
+              fontWeight: 400,
+              fontSize: 26,
+              lineHeight: 1.28,
+              letterSpacing: 0,
+              color: "#1c1c1e",
+              maxWidth: 380,
             }}
           >
             {frame.text}
@@ -305,10 +310,10 @@ export function Intro({ onDone }: { onDone: () => void }) {
             borderRadius: 14,
             fontSize: 17,
             fontWeight: 700,
-            color: install.isStandalone ? "var(--label-tertiary)" : "#ffffff",
+            color: install.isStandalone ? "rgba(60, 60, 67, 0.3)" : "#ffffff",
             background: install.isStandalone
-              ? "var(--fill-quaternary)"
-              : "var(--accent)",
+              ? "rgba(116, 116, 128, 0.08)"
+              : "#007aff",
             boxShadow: install.isStandalone
               ? "none"
               : "0 6px 18px rgba(0,122,255,0.32)",
@@ -321,7 +326,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
           onClick={dismiss}
           style={{
             background: "transparent",
-            color: "var(--label-secondary)",
+            color: "rgba(60, 60, 67, 0.6)",
             fontSize: 14,
             fontWeight: 500,
             padding: "6px 10px",

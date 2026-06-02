@@ -9,6 +9,7 @@ self-hosted as WOFF2 so the app renders correctly offline.
 (Regular / Medium / SemiBold / Bold).
 Source: <https://fonts.google.com/specimen/Google+Sans+Flex>.
 
-**Fraunces** — © The Fraunces Project Authors. Italic 600, Latin subset.
-Used only on the intro captions for a warm, children's-book serif feel.
-Source: <https://fonts.google.com/specimen/Fraunces>.
+**Averia Serif Libre** — © Dan Sayers. Italic 400, Latin subset. Used
+only on the intro captions; its averaged, slightly-wobbly serif pairs
+naturally with the hand-painted watercolor spot art.
+Source: <https://fonts.google.com/specimen/Averia+Serif+Libre>.
