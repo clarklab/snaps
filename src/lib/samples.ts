@@ -27,9 +27,9 @@ let cache: SamplesManifest | null | undefined;
 export async function getSamplesManifest(): Promise<SamplesManifest | null> {
   if (cache !== undefined) return cache;
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}samples.json`, {
-      cache: "no-cache",
-    });
+    // Default cache mode so the service worker can serve from its precache
+    // when the device is offline.
+    const res = await fetch(`${import.meta.env.BASE_URL}samples.json`);
     if (!res.ok) {
       cache = null;
       return null;
@@ -54,9 +54,33 @@ interface SeedStore {
 }
 
 /**
+ * Fisher-Yates shuffle — used so the sample boards fill in as a fun
+ * cross-color trickle rather than completing one color before the next.
+ */
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * How many sample fetches run at once. The local-precached set is small
+ * (≈40 KB each), so the bottleneck is canvas thumbnailing, not the wire.
+ * Six keeps the main thread happy on mid-range Androids while still
+ * looking like an overlapping cascade.
+ */
+const CONCURRENCY = 6;
+
+/**
  * Fills every *empty* color board from the manifest. Boards that already have
  * any photo are left untouched so we never clobber the player's own work.
- * Returns the number of photos placed.
+ *
+ * Items are shuffled across colors and pulled by a small pool of workers, so
+ * photos pop into different boards at the same time instead of completing
+ * one color before starting the next. Returns the number of photos placed.
  */
 export async function loadSampleBoards(
   store: SeedStore,
@@ -70,22 +94,34 @@ export async function loadSampleBoards(
     entries.forEach((e, slot) => items.push({ colorId: color.id, slot, url: e.url }));
   }
 
-  const total = items.length;
+  const queue = shuffled(items);
+  const total = queue.length;
   if (total === 0) return 0;
 
   let done = 0;
-  for (const it of items) {
-    try {
-      const res = await fetch(it.url, { mode: "cors" });
-      const blob = await res.blob();
-      if (blob.type.startsWith("image/")) {
-        await store.addPhoto(it.colorId, it.slot, blob, { sample: true });
+  let cursor = 0;
+
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= queue.length) return;
+      const it = queue[i];
+      try {
+        const res = await fetch(it.url);
+        const blob = await res.blob();
+        if (blob.type.startsWith("image/")) {
+          await store.addPhoto(it.colorId, it.slot, blob, { sample: true });
+        }
+      } catch {
+        /* skip a single failed image, keep going */
       }
-    } catch {
-      /* skip a single failed image, keep going */
+      done++;
+      onProgress?.(done, total);
     }
-    done++;
-    onProgress?.(done, total);
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, total) }, () => worker()),
+  );
   return done;
 }

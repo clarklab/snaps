@@ -8,15 +8,24 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useToast } from "../components/Toast";
 import { COLORS, SLOTS_PER_BOARD } from "../colors";
-import { deletePhoto, putPhoto, type PhotoRecord } from "../lib/db";
+import {
+  deletePhoto,
+  existingPhotoIds,
+  putPhoto,
+  StorageQuotaError,
+  type PhotoRecord,
+} from "../lib/db";
 import { processImage } from "../lib/image";
+import { safeGet, safeSet, setStorageErrorHandler } from "../lib/safeStorage";
 
 /** colorId -> array of SLOTS_PER_BOARD photo ids (or null). */
 type Boards = Record<string, (string | null)[]>;
 
 const STORAGE_KEY = "snaps.boards.v1";
 const SAMPLE_KEY = "snaps.sampleIds.v1";
+const PERSIST_KEY = "snaps.persistRequested.v1";
 
 function emptyBoards(): Boards {
   const b: Boards = {};
@@ -27,7 +36,7 @@ function emptyBoards(): Boards {
 function loadBoards(): Boards {
   const base = emptyBoards();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGet(STORAGE_KEY);
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Boards;
     for (const c of COLORS) {
@@ -44,11 +53,28 @@ function loadBoards(): Boards {
 
 function loadSampleIds(): string[] {
   try {
-    const raw = localStorage.getItem(SAMPLE_KEY);
+    const raw = safeGet(SAMPLE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
   } catch {
     return [];
+  }
+}
+
+/**
+ * Best-effort: ask the OS not to evict our IndexedDB data. The result is
+ * cached in localStorage so we never nag the user again. iOS Safari grants
+ * this silently after some engagement; Chrome grants it for installed PWAs.
+ */
+async function requestPersistentStorage(): Promise<void> {
+  if (safeGet(PERSIST_KEY)) return;
+  try {
+    const persist = navigator.storage?.persist;
+    if (!persist) return;
+    const granted = await persist.call(navigator.storage);
+    safeSet(PERSIST_KEY, granted ? "granted" : "denied");
+  } catch {
+    /* no-op */
   }
 }
 
@@ -66,6 +92,8 @@ interface StoreValue {
     opts?: { sample?: boolean }
   ) => Promise<void>;
   removePhoto: (colorId: string, slot: number) => Promise<void>;
+  /** Swap the contents of two slots in a board. Either slot may be empty. */
+  movePhoto: (colorId: string, fromSlot: number, toSlot: number) => void;
   clearBoard: (colorId: string) => Promise<void>;
   /** Whether any currently-placed photo came from the sample set. */
   hasSamples: boolean;
@@ -76,6 +104,7 @@ interface StoreValue {
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
+  const toast = useToast();
   const [boards, setBoards] = useState<Boards>(loadBoards);
   const [sampleIds, setSampleIds] = useState<string[]>(loadSampleIds);
 
@@ -83,13 +112,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const sampleRef = useRef(sampleIds);
   sampleRef.current = sampleIds;
 
+  // Surface localStorage write failures (Safari private mode, quota) once.
+  const storageToastShown = useRef(false);
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(boards));
+    setStorageErrorHandler((_, op) => {
+      if (op !== "set" || storageToastShown.current) return;
+      storageToastShown.current = true;
+      toast.push({
+        title: "Storage is read-only",
+        detail:
+          "Your browser is blocking saves (often private/incognito mode). Boards won't persist.",
+        tone: "warn",
+        timeout: 6000,
+      });
+    });
+    return () => setStorageErrorHandler(null);
+  }, [toast]);
+
+  useEffect(() => {
+    safeSet(STORAGE_KEY, JSON.stringify(boards));
   }, [boards]);
 
   useEffect(() => {
-    localStorage.setItem(SAMPLE_KEY, JSON.stringify(sampleIds));
+    safeSet(SAMPLE_KEY, JSON.stringify(sampleIds));
   }, [sampleIds]);
+
+  // Reconcile boards with IndexedDB once on mount: drop refs to photos that
+  // no longer exist (partial wipe, storage eviction, manual db edits).
+  useEffect(() => {
+    let cancelled = false;
+    existingPhotoIds().then((ids) => {
+      if (cancelled) return;
+      let dropped = 0;
+      setBoards((prev) => {
+        const next: Boards = {};
+        for (const c of COLORS) {
+          next[c.id] = (prev[c.id] ?? Array(SLOTS_PER_BOARD).fill(null)).map(
+            (id) => {
+              if (id && !ids.has(id)) {
+                dropped++;
+                return null;
+              }
+              return id;
+            },
+          );
+        }
+        return dropped > 0 ? next : prev;
+      });
+      if (dropped > 0) {
+        setSampleIds((s) => s.filter((x) => ids.has(x)));
+        toast.push({
+          title: `Recovered ${dropped} missing photo${dropped === 1 ? "" : "s"}`,
+          detail: "Some slots were empty in storage and have been cleared.",
+          tone: "info",
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const filledCount = useCallback(
     (colorId: string) => boards[colorId]?.filter(Boolean).length ?? 0,
@@ -127,7 +209,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         height: processed.height,
         addedAt: Date.now(),
       };
-      await putPhoto(record);
+      try {
+        await putPhoto(record);
+      } catch (err) {
+        if (err instanceof StorageQuotaError) {
+          toast.push({
+            title: "Out of storage",
+            detail:
+              "Your device is full. Remove a photo or free up space and try again.",
+            tone: "error",
+            timeout: 5500,
+          });
+        }
+        throw err;
+      }
+
+      // First successful save → best-effort persistent-storage request.
+      void requestPersistentStorage();
 
       if (opts?.sample) setSampleIds((prev) => [...prev, id]);
 
@@ -143,7 +241,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ...prev, [colorId]: board };
       });
     },
-    []
+    [toast]
+  );
+
+  const movePhoto = useCallback(
+    (colorId: string, fromSlot: number, toSlot: number) => {
+      if (fromSlot === toSlot) return;
+      setBoards((prev) => {
+        const board = [...(prev[colorId] ?? [])];
+        if (fromSlot >= board.length || toSlot >= board.length) return prev;
+        [board[fromSlot], board[toSlot]] = [board[toSlot], board[fromSlot]];
+        return { ...prev, [colorId]: board };
+      });
+    },
+    [],
   );
 
   const removePhoto = useCallback(async (colorId: string, slot: number) => {
@@ -198,6 +309,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       totalSlots,
       addPhoto,
       removePhoto,
+      movePhoto,
       clearBoard,
       hasSamples: sampleIds.length > 0,
       clearSamples,
@@ -211,6 +323,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       totalSlots,
       addPhoto,
       removePhoto,
+      movePhoto,
       clearBoard,
       sampleIds,
       clearSamples,

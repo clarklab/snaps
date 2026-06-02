@@ -14,8 +14,10 @@ import { Thumbnail } from "./Thumbnail";
 
 export function ColorBoard({
   onSelect,
+  supportsVT,
 }: {
   onSelect: (colorId: string) => void;
+  supportsVT: boolean;
 }) {
   const store = useStore();
   const samples = useSampleLoader();
@@ -103,7 +105,12 @@ export function ColorBoard({
         }}
       >
         {COLORS.map((color) => (
-          <ColorTile key={color.id} color={color} onSelect={onSelect} />
+          <ColorTile
+            key={color.id}
+            color={color}
+            onSelect={onSelect}
+            supportsVT={supportsVT}
+          />
         ))}
       </div>
     </div>
@@ -119,9 +126,11 @@ export function ColorBoard({
 function ColorTile({
   color,
   onSelect,
+  supportsVT,
 }: {
   color: QuestColor;
   onSelect: (colorId: string) => void;
+  supportsVT: boolean;
 }) {
   const { scheme } = useTheme();
   const store = useStore();
@@ -133,12 +142,14 @@ function ColorTile({
   return (
     <div>
       <motion.button
-        layoutId={`hero-${color.id}`}
+        layoutId={supportsVT ? undefined : `hero-${color.id}`}
         onClick={() => {
           haptic("select");
           onSelect(color.id);
         }}
-        whileTap={{ scale: 0.95 }}
+        whileTap={{ scale: 0.97 }}
+        whileHover={{ y: -2 }}
+        transition={{ type: "spring", stiffness: 380, damping: 28 }}
         aria-label={`${color.name}, ${fill} of ${SLOTS_PER_BOARD} photos`}
         style={{
           display: "grid",
@@ -152,6 +163,7 @@ function ColorTile({
           boxShadow: color.needsBorder
             ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
             : "var(--tile-shadow)",
+          viewTransitionName: supportsVT ? `hero-${color.id}` : undefined,
         }}
       >
         {Array.from({ length: SLOTS_PER_BOARD }).map((_, i) => {
@@ -165,7 +177,7 @@ function ColorTile({
                 background: hex,
               }}
             >
-              {photoId && <Thumbnail photoId={photoId} alt="" />}
+              {photoId && <Thumbnail photoId={photoId} alt="" tint={hex} />}
             </div>
           );
         })}

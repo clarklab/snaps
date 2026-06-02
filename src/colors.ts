@@ -23,7 +23,9 @@ export const COLORS: QuestColor[] = [
   { id: "green", name: "Green", light: "#34c759", dark: "#30d158" },
   { id: "blue", name: "Blue", light: "#007aff", dark: "#0a84ff" },
   { id: "purple", name: "Purple", light: "#af52de", dark: "#bf5af2" },
-  { id: "pink", name: "Pink", light: "#ff2d55", dark: "#ff375f" },
+  // Warm dusty rose rather than system magenta — the pink of Italian
+  // stucco walls and a cherry blossom rather than a highlighter.
+  { id: "pink", name: "Pink", light: "#e89c9a", dark: "#eea9a5" },
   // Black & white stay literal in both schemes; the hairline border keeps them
   // visible against the matching background.
   { id: "black", name: "Black", light: "#1c1c1e", dark: "#1c1c1e", needsBorder: true },

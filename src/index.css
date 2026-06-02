@@ -1,25 +1,27 @@
-/* ---- Google Sans Flex (OFL) — self-hosted for offline use ---- */
+/* ---- Google Sans Flex (OFL) — self-hosted as WOFF2 (Latin subset).
+   See scripts/convert_fonts.py for the conversion; widen the range there
+   before localizing to non-Latin scripts. ---- */
 @font-face {
   font-family: "Google Sans Flex";
-  src: url("/fonts/GoogleSansFlex-Regular.ttf") format("truetype");
+  src: url("/fonts/GoogleSansFlex-Regular.woff2") format("woff2");
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: "Google Sans Flex";
-  src: url("/fonts/GoogleSansFlex-Medium.ttf") format("truetype");
+  src: url("/fonts/GoogleSansFlex-Medium.woff2") format("woff2");
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: "Google Sans Flex";
-  src: url("/fonts/GoogleSansFlex-SemiBold.ttf") format("truetype");
+  src: url("/fonts/GoogleSansFlex-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-display: swap;
 }
 @font-face {
   font-family: "Google Sans Flex";
-  src: url("/fonts/GoogleSansFlex-Bold.ttf") format("truetype");
+  src: url("/fonts/GoogleSansFlex-Bold.woff2") format("woff2");
   font-weight: 700;
   font-display: swap;
 }
@@ -114,11 +116,36 @@ img {
 #root {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  /* On wider screens (tablet/desktop), keep the app readable as a phone-
+     shaped column rather than stretching color tiles into wall art. The
+     full-screen overlays (PhotoViewer, ColorDetail) use `position: fixed`
+     so they still cover the whole viewport. */
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ---- View Transitions (Chrome 111+, Safari 18+) ----
+   The hero morph runs at compositor level when supported. Keep it brisk
+   so the morph feels snappy, and use ease-in-out rather than the default
+   ease-out so both leaving and arriving sides feel symmetrical. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.28s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::view-transition-group(*) {
+  animation-duration: 0.36s;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* Respect reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  ::view-transition-group(*),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

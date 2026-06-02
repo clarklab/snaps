@@ -20,6 +20,16 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/icons/favicon-64.png" />
 
+    <!-- Preload the regular weight so first text paint isn't blocked by
+         the font fetch. The other weights load lazily via @font-face. -->
+    <link
+      rel="preload"
+      href="/fonts/GoogleSansFlex-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <!-- theme-color flips with the active scheme; JS keeps it in sync too -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0c0e" />

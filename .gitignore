@@ -19,3 +19,6 @@ pnpm-debug.log*
 !.vscode/extensions.json
 .idea/
 *.local
+
+# Heavy source files (raw PNGs for intro WebPs etc.) — keep out of the bundle
+scripts/source-images/

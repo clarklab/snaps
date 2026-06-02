@@ -8,8 +8,10 @@ import {
   type QuestColor,
 } from "../colors";
 import { haptic } from "../lib/haptics";
+import { useGridDrag } from "../lib/useGridDrag";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
+import { Confetti } from "./Confetti";
 import { PhotoViewer } from "./PhotoViewer";
 import { ProgressBar } from "./Progress";
 import { Sheet } from "./Sheet";
@@ -18,9 +20,11 @@ import { Thumbnail } from "./Thumbnail";
 export function ColorDetail({
   color,
   onBack,
+  supportsVT,
 }: {
   color: QuestColor;
   onBack: () => void;
+  supportsVT: boolean;
 }) {
   const { scheme } = useTheme();
   const store = useStore();
@@ -30,6 +34,7 @@ export function ColorDetail({
   const [viewerSlot, setViewerSlot] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
+  const [mosaic, setMosaic] = useState<MosaicState | null>(null);
 
   const libRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
@@ -48,6 +53,22 @@ export function ColorDetail({
     setSourceOpen(false);
     (useCamera ? camRef : libRef).current?.click();
   };
+
+  const toggleMosaic = () => {
+    haptic("select");
+    setMosaic((prev) => (prev ? null : rollMosaic()));
+  };
+
+  // Long-press a filled slot to drag-swap it with another. The hook reports
+  // a `state` object during drag (origin, current pointer offset, current
+  // drop target) which we apply as a transform/scale below; the swap itself
+  // is a store-level slot swap, and layoutId on the photo wrappers lets
+  // framer-motion animate both photos to their new homes.
+  const drag = useGridDrag({
+    count: SLOTS_PER_BOARD,
+    isDraggable: (i) => !!slots[i],
+    onSwap: (from, to) => store.movePhoto(color.id, from, to),
+  });
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,16 +106,22 @@ export function ColorDetail({
     >
       {/* Colored hero — morphs from the tapped tile */}
       <motion.div
-        layoutId={`hero-${color.id}`}
+        layoutId={supportsVT ? undefined : `hero-${color.id}`}
         style={{
           background: hex,
           boxShadow: color.needsBorder
             ? "inset 0 0 0 1px var(--hairline)"
             : "none",
           borderRadius: 24,
-          margin: "calc(var(--safe-top) + 10px) 12px 4px",
-          padding: "16px 18px 18px",
+          marginTop: "calc(var(--safe-top) + 10px)",
+          marginLeft: "auto",
+          marginRight: "auto",
+          marginBottom: 4,
+          padding: "clamp(16px, 4vw, 22px) clamp(18px, 4vw, 24px) clamp(18px, 4vw, 24px)",
+          maxWidth: 536,
+          width: "calc(100% - 24px)",
           color: ink,
+          viewTransitionName: supportsVT ? `hero-${color.id}` : undefined,
         }}
       >
         <div
@@ -120,13 +147,43 @@ export function ColorDetail({
             Colors
           </button>
           {fill > 0 && (
-            <button
-              onClick={() => setMoreOpen(true)}
-              aria-label="Board options"
-              style={{ color: ink, opacity: 0.85 }}
-            >
-              <DotsIcon />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                onClick={toggleMosaic}
+                aria-label={mosaic ? "Switch to grid layout" : "Switch to mosaic layout"}
+                aria-pressed={!!mosaic}
+                style={{
+                  color: ink,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  display: "grid",
+                  placeItems: "center",
+                  background: mosaic
+                    ? ink === "#ffffff"
+                      ? "rgba(255,255,255,0.18)"
+                      : "rgba(0,0,0,0.12)"
+                    : "transparent",
+                  transition: "background 0.18s ease",
+                }}
+              >
+                <MosaicIcon />
+              </button>
+              <button
+                onClick={() => setMoreOpen(true)}
+                aria-label="Board options"
+                style={{
+                  color: ink,
+                  opacity: 0.85,
+                  width: 32,
+                  height: 32,
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <DotsIcon />
+              </button>
+            </div>
           )}
         </div>
 
@@ -164,62 +221,134 @@ export function ColorDetail({
         </div>
       </motion.div>
 
-      {/* Photo grid */}
+      {/* Photo grid.
+          When View Transitions are available the page-level transition
+          handles the entrance, so skipping the JS fade-in avoids it being
+          stuck at opacity 0 while the VT freezes the document.  */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={supportsVT ? false : { opacity: 0, y: 10 }}
+        animate={supportsVT ? undefined : { opacity: 1, y: 0 }}
         transition={{ delay: 0.12, duration: 0.28 }}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 10,
-          padding: "12px 16px calc(var(--safe-bottom) + 28px)",
-        }}
+        style={
+          mosaic
+            ? {
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                // Explicit row height keyed to viewport width so each cell
+                // is square (without it, `1fr` rows expand to image
+                // intrinsic height and the layout balloons).
+                gridTemplateRows:
+                  "repeat(4, calc((min(100vw, 536px) - 36px) / 3))",
+                gridTemplateAreas: mosaic.template.areas.join(" "),
+                gap: 6,
+                padding: "12px 12px calc(var(--safe-bottom) + 28px)",
+              }
+            : {
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 10,
+                padding: "12px 16px calc(var(--safe-bottom) + 28px)",
+              }
+        }
       >
-        {slots.map((photoId, i) => (
-          <motion.button
-            key={i}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              haptic("tap");
-              if (photoId) setViewerSlot(i);
-              else openSource(i);
-            }}
-            aria-label={
-              photoId
-                ? `View ${color.name} photo ${i + 1}`
-                : `Add a ${color.name.toLowerCase()} photo`
-            }
-            style={{
-              position: "relative",
-              aspectRatio: "1 / 1",
-              borderRadius: 16,
-              overflow: "hidden",
-              background: photoId ? "var(--fill-quaternary)" : wash(hex, scheme),
-              boxShadow: "inset 0 0 0 1px var(--hairline)",
-              display: "grid",
-              placeItems: "center",
-            }}
-          >
-            {photoId ? (
-              <Thumbnail photoId={photoId} alt={`${color.name} photo`} />
-            ) : (
-              <div
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 999,
-                  display: "grid",
-                  placeItems: "center",
-                  border: `1.5px dashed ${hex}`,
-                  opacity: 0.7,
-                }}
-              >
-                <PlusIcon color={hex} />
-              </div>
-            )}
-          </motion.button>
-        ))}
+        {(mosaic ? mosaic.order : slots.map((_, i) => i)).map((slotIdx, i) => {
+          const photoId = slots[slotIdx];
+          const area = mosaic ? MOSAIC_CELLS[i] : undefined;
+          // Hero cells (those spanning multiple rows or columns) carry a
+          // softer outer shadow so they read as the focal point.
+          const isHero =
+            mosaic !== null &&
+            mosaic.template.areas.join(" ").split(area!).length - 1 > 1;
+          const isDragSource = drag.state?.from === slotIdx;
+          const isDropTarget =
+            drag.state?.target === slotIdx && drag.state.from !== slotIdx;
+          return (
+            <motion.button
+              key={mosaic ? `m-${i}` : i}
+              ref={drag.setCellRef(slotIdx)}
+              onPointerDown={drag.onCellPointerDown(slotIdx)}
+              whileTap={isDragSource ? undefined : { scale: 0.97 }}
+              animate={{
+                x: isDragSource ? drag.state!.x : 0,
+                y: isDragSource ? drag.state!.y : 0,
+                scale: isDragSource ? 1.08 : isDropTarget ? 0.94 : 1,
+              }}
+              transition={
+                isDragSource
+                  ? { type: "spring", stiffness: 1200, damping: 60, mass: 0.4 }
+                  : { type: "spring", stiffness: 380, damping: 30 }
+              }
+              onClick={(e) => {
+                if (drag.consumeTapSuppression()) {
+                  e.preventDefault();
+                  return;
+                }
+                haptic("tap");
+                if (photoId) setViewerSlot(slotIdx);
+                else openSource(slotIdx);
+              }}
+              aria-label={
+                photoId
+                  ? `View ${color.name} photo ${slotIdx + 1}`
+                  : `Add a ${color.name.toLowerCase()} photo`
+              }
+              style={{
+                position: "relative",
+                aspectRatio: mosaic ? undefined : "1 / 1",
+                gridArea: area,
+                minWidth: 0,
+                minHeight: 0,
+                borderRadius: mosaic ? 12 : 16,
+                overflow: "hidden",
+                background: photoId
+                  ? "var(--fill-quaternary)"
+                  : wash(hex, scheme),
+                boxShadow: isDragSource
+                  ? "0 18px 40px rgba(0,0,0,0.28), inset 0 0 0 1px var(--hairline)"
+                  : isHero
+                    ? "inset 0 0 0 1px var(--hairline), 0 6px 20px rgba(0,0,0,0.10)"
+                    : "inset 0 0 0 1px var(--hairline)",
+                display: "grid",
+                placeItems: "center",
+                zIndex: isDragSource ? 30 : undefined,
+                // Suppress browser-level touch behaviors so long-press
+                // doesn't accidentally trigger pull-to-refresh or scroll.
+                touchAction: "none",
+              }}
+            >
+              {photoId ? (
+                // layoutId on the photo wrapper lets framer-motion FLIP-
+                // animate both photos to their new homes when slots swap,
+                // so the drop reads as an exchange rather than a content flip.
+                <motion.div
+                  layoutId={`photo-${photoId}`}
+                  transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                  style={{ width: "100%", height: "100%" }}
+                >
+                  <Thumbnail
+                    photoId={photoId}
+                    alt={`${color.name} photo`}
+                    tint={wash(hex, scheme)}
+                  />
+                </motion.div>
+              ) : (
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 999,
+                    display: "grid",
+                    placeItems: "center",
+                    border: `1.5px dashed ${hex}`,
+                    opacity: 0.7,
+                  }}
+                >
+                  <PlusIcon color={hex} />
+                </div>
+              )}
+            </motion.button>
+          );
+        })}
       </motion.div>
 
       {/* Hidden file inputs */}
@@ -293,36 +422,39 @@ export function ColorDetail({
       {/* Board-complete celebration */}
       <AnimatePresence>
         {justCompleted && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ type: "spring", stiffness: 400, damping: 26 }}
-            style={{
-              position: "fixed",
-              top: "calc(var(--safe-top) + 16px)",
-              left: 0,
-              right: 0,
-              display: "flex",
-              justifyContent: "center",
-              pointerEvents: "none",
-              zIndex: 40,
-            }}
-          >
-            <div
+          <>
+            <Confetti tint={hex} />
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ type: "spring", stiffness: 400, damping: 26 }}
               style={{
-                background: "var(--bg-elevated)",
-                color: "var(--label)",
-                padding: "10px 18px",
-                borderRadius: 999,
-                boxShadow: "var(--surface-shadow)",
-                fontSize: 15,
-                fontWeight: 600,
+                position: "fixed",
+                top: "calc(var(--safe-top) + 16px)",
+                left: 0,
+                right: 0,
+                display: "flex",
+                justifyContent: "center",
+                pointerEvents: "none",
+                zIndex: 46,
               }}
             >
-              🎉 {color.name} board complete
-            </div>
-          </motion.div>
+              <div
+                style={{
+                  background: "var(--bg-elevated)",
+                  color: "var(--label)",
+                  padding: "10px 18px",
+                  borderRadius: 999,
+                  boxShadow: "var(--surface-shadow)",
+                  fontSize: 15,
+                  fontWeight: 600,
+                }}
+              >
+                🎉 {color.name} board complete
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -422,4 +554,62 @@ function PlusIcon({ color }: { color: string }) {
       />
     </svg>
   );
+}
+
+function MosaicIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden>
+      <rect x="1.5" y="1.5" width="9" height="9" rx="1.6" />
+      <rect x="12" y="1.5" width="4.5" height="4.5" rx="1" />
+      <rect x="12" y="7.5" width="4.5" height="3" rx="1" />
+      <rect x="1.5" y="12" width="6" height="4.5" rx="1" />
+      <rect x="9" y="12" width="3" height="4.5" rx="1" />
+      <rect x="13.5" y="12" width="3" height="4.5" rx="1" />
+    </svg>
+  );
+}
+
+/**
+ * Mosaic templates. Each is a 4-row × 3-col CSS grid with named areas
+ * a..i — nine cells, but with different cells spanning 2×2 (hero),
+ * 1×2 (wide), or 2×1 (tall) so photos read more like a magazine spread
+ * than a uniform grid.
+ *
+ * Add more templates here to expand the variety; every toggle picks one
+ * at random plus a fresh photo shuffle, so users get a new mosaic each
+ * time they enable it.
+ */
+const MOSAIC_TEMPLATES: { areas: string[] }[] = [
+  // Hero top-left + 8 small
+  { areas: ['"a a b"', '"a a c"', '"d e f"', '"g h i"'] },
+  // Hero top-right + 8 small
+  { areas: ['"a b b"', '"c b b"', '"d e f"', '"g h i"'] },
+  // Hero center + 8 small
+  { areas: ['"a b c"', '"d e e"', '"f e e"', '"g h i"'] },
+  // Wide banner top + grid + wide banner bottom
+  { areas: ['"a a a"', '"b c d"', '"e f g"', '"h h i"'] },
+  // Tall bottom-left + two wide rows on the right
+  { areas: ['"a b c"', '"d e f"', '"g h h"', '"g i i"'] },
+  // Wide top + tall right + small grid
+  { areas: ['"a a b"', '"c d b"', '"e f f"', '"g h i"'] },
+];
+
+/** Cell labels in document order — matches MOSAIC_TEMPLATES area strings. */
+const MOSAIC_CELLS = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+
+interface MosaicState {
+  template: (typeof MOSAIC_TEMPLATES)[number];
+  /** Permutation of [0..8] mapping cell index → slot index. */
+  order: number[];
+}
+
+function rollMosaic(): MosaicState {
+  const template =
+    MOSAIC_TEMPLATES[Math.floor(Math.random() * MOSAIC_TEMPLATES.length)];
+  const order = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return { template, order };
 }
