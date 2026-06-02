@@ -164,27 +164,32 @@ export function Intro({ onDone }: { onDone: () => void }) {
         Skip
       </button>
 
-      {/* Image stage — fixed aspect frame so transitions don't shift layout. */}
+      {/* Image + caption are vertically centered together as one block in
+          the space between Skip and the CTA so the caption sits close
+          beneath the illustration (storybook spread, not split layout). */}
       <div
         style={{
           flex: 1,
-          width: "100%",
-          maxWidth: 420,
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 24px",
+          gap: 18,
+          width: "100%",
         }}
       >
         <div
           style={{
             position: "relative",
-            width: "100%",
-            aspectRatio: "1 / 1",
-            maxHeight: "60vh",
+            width: "calc(100% - 48px)",
+            maxWidth: 420,
+            // 4:3 matches the source illustrations; using 1:1 letterboxed
+            // them and left an awkward gap of white before the caption.
+            aspectRatio: "4 / 3",
+            maxHeight: "44vh",
           }}
         >
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.img
               key={idx}
               src={frame.src}
@@ -233,23 +238,22 @@ export function Intro({ onDone }: { onDone: () => void }) {
             />
           </AnimatePresence>
         </div>
-      </div>
 
-      {/* Caption that crossfades with the frame.
-          mode="wait" runs exit→enter sequentially so two captions never
-          stack on top of each other; the image crossfade above keeps the
-          frame visually present during that brief gap. */}
-      <div
-        style={{
-          minHeight: 70,
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: "0 32px",
-        }}
-      >
+        {/* Caption that crossfades with the frame.
+            mode="wait" runs exit→enter sequentially so two captions never
+            stack on top of each other; the image crossfade above keeps
+            the frame visually present during that brief gap. */}
+        <div
+          style={{
+            minHeight: 56,
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: "0 32px",
+          }}
+        >
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={idx}
@@ -259,35 +263,24 @@ export function Intro({ onDone }: { onDone: () => void }) {
             transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
             style={{
               margin: 0,
-              fontSize: 19,
+              // Storybook serif (Fraunces italic 600) — warmer and more
+              // emotional than the system UI face. Slightly larger and
+              // looser tracking so it reads like a picture-book line.
+              fontFamily:
+                '"Fraunces", "Iowan Old Style", "Georgia", serif',
+              fontStyle: "italic",
               fontWeight: 600,
-              lineHeight: 1.35,
+              fontSize: 22,
+              lineHeight: 1.3,
+              letterSpacing: 0.1,
               color: "var(--label)",
-              letterSpacing: -0.1,
               maxWidth: 360,
             }}
           >
             {frame.text}
           </motion.p>
         </AnimatePresence>
-      </div>
-
-      {/* Dot pager — small visual cue of the three-frame loop. */}
-      <div style={{ display: "flex", gap: 6, marginTop: 14, marginBottom: 22 }}>
-        {FRAMES.map((_, i) => (
-          <span
-            key={i}
-            aria-hidden
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 999,
-              background:
-                i === idx ? "var(--label)" : "var(--label-tertiary)",
-              transition: "background 0.35s ease",
-            }}
-          />
-        ))}
+        </div>
       </div>
 
       {/* CTA */}

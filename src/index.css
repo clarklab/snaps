@@ -26,6 +26,17 @@
   font-display: swap;
 }
 
+/* Fraunces (OFL) — used only on the intro captions for a warm,
+   children's-book serif feel. Single static cut (italic 600), Latin
+   subset, ~21 KB. */
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/Fraunces-Italic-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* ---- Design tokens ---- */
 :root {
   --font: "Google Sans Flex", -apple-system, BlinkMacSystemFont, "Segoe UI",
