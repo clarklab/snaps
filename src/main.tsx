@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ToastProvider } from "./components/Toast";
+import { DemoProvider } from "./state/demo";
 import { StoreProvider } from "./state/store";
 import { ThemeProvider } from "./state/theme";
 import { registerServiceWorker } from "./lib/registerSW";
@@ -12,7 +13,9 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <ToastProvider>
         <StoreProvider>
-          <App />
+          <DemoProvider>
+            <App />
+          </DemoProvider>
         </StoreProvider>
       </ToastProvider>
     </ThemeProvider>

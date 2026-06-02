@@ -6,7 +6,7 @@ import {
   type QuestColor,
 } from "../colors";
 import { haptic } from "../lib/haptics";
-import { useSampleLoader } from "../state/useSampleLoader";
+import { useDemo } from "../state/demo";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
 import { ProgressBar } from "./Progress";
@@ -20,81 +20,51 @@ export function ColorBoard({
   supportsVT: boolean;
 }) {
   const store = useStore();
-  const samples = useSampleLoader();
-
-  const handleLoadSamples = async () => {
-    haptic("select");
-    const placed = await samples.load();
-    if (placed) haptic("success");
-  };
+  const demo = useDemo();
 
   return (
     <div style={{ padding: "4px 16px 28px" }}>
-      {(store.totalFilled === 0 || samples.seeding) && (
+      {demo.loading ? (
+        // The guided tour's sample cascade — shown right here so the photos
+        // visibly pour into the grid below.
         <div style={{ margin: "0 4px 16px" }}>
-          {samples.seeding ? (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 13.5,
-                  marginBottom: 8,
-                  color: "var(--label-secondary)",
-                }}
-              >
-                <span>Loading sample photos…</span>
-                <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {samples.progress.done} / {samples.progress.total || "…"}
-                </span>
-              </div>
-              <ProgressBar
-                value={samples.progress.done}
-                total={samples.progress.total || 1}
-                tint="var(--accent)"
-              />
-            </>
-          ) : (
-            <>
-              <p
-                style={{
-                  margin: "0 0 10px",
-                  fontSize: 13.5,
-                  lineHeight: 1.4,
-                  color: "var(--label-secondary)",
-                }}
-              >
-                Pick a color, then fill its grid with nine photos of things in
-                that color.
-              </p>
-              {samples.available && (
-                <button
-                  onClick={handleLoadSamples}
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "var(--accent)",
-                    padding: "2px 0",
-                  }}
-                >
-                  Or load a sample set →
-                </button>
-              )}
-            </>
-          )}
-          {samples.note && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 13.5,
+              marginBottom: 8,
+              color: "var(--label-secondary)",
+            }}
+          >
+            <span>Loading sample photos…</span>
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>
+              {demo.progress.done} / {demo.progress.total || "…"}
+            </span>
+          </div>
+          <ProgressBar
+            value={demo.progress.done}
+            total={demo.progress.total || 1}
+            tint="var(--accent)"
+          />
+        </div>
+      ) : (
+        store.totalFilled === 0 && (
+          // The little "how it works" tooltip shown on a fresh board.
+          <div style={{ margin: "0 4px 16px" }}>
             <p
               style={{
-                margin: "10px 0 0",
-                fontSize: 12.5,
+                margin: 0,
+                fontSize: 13.5,
                 lineHeight: 1.4,
                 color: "var(--label-secondary)",
               }}
             >
-              {samples.note}
+              Pick a color, then fill its grid with nine photos of things in
+              that color.
             </p>
-          )}
-        </div>
+          </div>
+        )
       )}
 
       <div

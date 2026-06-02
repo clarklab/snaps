@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   readableInk,
   SLOTS_PER_BOARD,
@@ -21,10 +21,17 @@ export function ColorDetail({
   color,
   onBack,
   supportsVT,
+  forceMosaic,
 }: {
   color: QuestColor;
   onBack: () => void;
   supportsVT: boolean;
+  /**
+   * When defined (the guided tour), the mosaic layout is driven externally:
+   * `true` rolls a fresh mosaic, `false` returns to the plain grid. Left
+   * undefined for normal use so the in-board toggle stays in control.
+   */
+  forceMosaic?: boolean;
 }) {
   const { scheme } = useTheme();
   const store = useStore();
@@ -58,6 +65,12 @@ export function ColorDetail({
     haptic("select");
     setMosaic((prev) => (prev ? null : rollMosaic()));
   };
+
+  // Guided-tour override: flip the mosaic on/off on command.
+  useEffect(() => {
+    if (forceMosaic === undefined) return;
+    setMosaic(forceMosaic ? rollMosaic() : null);
+  }, [forceMosaic]);
 
   // Long-press a filled slot to drag-swap it with another. The hook reports
   // a `state` object during drag (origin, current pointer offset, current
