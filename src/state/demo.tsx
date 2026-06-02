@@ -14,7 +14,7 @@ import {
   type SamplesManifest,
 } from "../lib/samples";
 import { haptic } from "../lib/haptics";
-import { startTransition } from "../lib/viewTransitions";
+import { startTransitionSync } from "../lib/viewTransitions";
 import { useStore } from "./store";
 import { useTheme, type AppearanceMode } from "./theme";
 
@@ -123,8 +123,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       });
 
     // Open/close a board through the same view-transition morph a real tap
-    // uses, so the tour's navigation looks identical to the live app.
-    const nav = (id: string | null) => startTransition(() => setSelectedId(id));
+    // uses. The tour runs on an async timeline, so it needs the flushSync
+    // variant to commit before the snapshot (a plain tap doesn't).
+    const nav = (id: string | null) =>
+      startTransitionSync(() => setSelectedId(id));
 
     (async () => {
       try {
