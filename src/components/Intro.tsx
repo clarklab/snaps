@@ -1,21 +1,16 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { haptic } from "../lib/haptics";
 import { safeGet, safeSet } from "../lib/safeStorage";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useToast } from "./Toast";
 
 /**
- * First-run intro overlay. Three illustrated frames cycle in a smooth
- * loop with a watercolor-bleed transition between them. A persistent
- * "Install App" button triggers the native add-to-home-screen flow when
- * the browser supports it; a small Skip link dismisses the overlay.
- *
- * The "watercolor" effect is achieved by:
- *   1. A persistent SVG filter (turbulence + small displacement) that
- *      gives each frame a subtle painted edge in steady state.
- *   2. Strong blur + saturate during enter/exit transitions, so frames
- *      bloom in and wash out like watercolor on wet paper.
+ * First-run intro overlay. Three illustrated frames cycle in a smooth loop,
+ * each frame crossfading softly into the next, with the caption fading in
+ * beneath it. A persistent "Install Snaps" button triggers the native
+ * add-to-home-screen flow when the browser supports it; "Maybe later"
+ * dismisses the overlay.
  *
  * The intro is shown only once per device (persisted via localStorage),
  * unless the user explicitly resets it from Settings (future hook).
@@ -58,12 +53,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
   const [idx, setIdx] = useState(0);
   const install = useInstallPrompt();
   const toast = useToast();
-  const reducedMotion = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-    [],
-  );
 
   // Auto-advance the loop. A single setTimeout per frame is essentially
   // free; we don't bother pausing on visibilitychange because backgrounded
@@ -146,28 +135,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
         paddingBottom: "calc(var(--safe-bottom) + 28px)",
       }}
     >
-      <WatercolorFilter />
-
-      {/* Skip in the corner — quiet, doesn't compete with the install CTA.
-          Colors are pinned to light-theme values since the white bg
-          stays white regardless of the device theme. */}
-      <button
-        onClick={dismiss}
-        style={{
-          position: "absolute",
-          top: "calc(var(--safe-top) + 16px)",
-          right: 18,
-          color: "rgba(60, 60, 67, 0.6)",
-          fontSize: 14,
-          fontWeight: 500,
-          padding: "6px 10px",
-          borderRadius: 8,
-        }}
-        aria-label="Skip intro"
-      >
-        Skip
-      </button>
-
       {/* Image + caption are vertically centered together as one block in
           the space between Skip and the CTA so the caption sits close
           beneath the illustration (storybook spread, not split layout). */}
@@ -205,36 +172,15 @@ export function Intro({ onDone }: { onDone: () => void }) {
               src={frame.src}
               alt=""
               draggable={false}
-              initial={
-                reducedMotion
-                  ? { opacity: 0 }
-                  : {
-                      opacity: 0,
-                      scale: 1.06,
-                      filter: "blur(14px) saturate(1.4)",
-                    }
-              }
-              animate={
-                reducedMotion
-                  ? { opacity: 1 }
-                  : {
-                      opacity: 1,
-                      scale: 1,
-                      filter: "blur(0px) saturate(1) url(#wc-edge)",
-                    }
-              }
-              exit={
-                reducedMotion
-                  ? { opacity: 0 }
-                  : {
-                      opacity: 0,
-                      scale: 0.94,
-                      filter: "blur(18px) saturate(0.85)",
-                    }
-              }
+              // A clean, soft crossfade — both frames are absolutely
+              // positioned so the outgoing one fades out as the incoming
+              // one fades in, with no movement or filtering.
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{
                 duration: TRANSITION_MS / 1000,
-                ease: [0.32, 0.72, 0, 1],
+                ease: [0.4, 0, 0.2, 1],
               }}
               style={{
                 position: "absolute",
@@ -250,12 +196,14 @@ export function Intro({ onDone }: { onDone: () => void }) {
         </div>
 
         {/* Caption that crossfades with the frame.
-            mode="wait" runs exit→enter sequentially so two captions never
-            stack on top of each other; the image crossfade above keeps
-            the frame visually present during that brief gap. */}
+            A FIXED height (tall enough for the longest two-line caption)
+            reserves the caption's space so the spot art above never shifts
+            as captions of different lengths swap in. mode="wait" runs
+            exit→enter sequentially so two captions never stack. */}
         <div
           style={{
-            minHeight: 56,
+            height: 88,
+            flexShrink: 0,
             width: "100%",
             display: "flex",
             alignItems: "center",
@@ -267,9 +215,11 @@ export function Intro({ onDone }: { onDone: () => void }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={idx}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
+            // Fade in place — no vertical travel — so the text appears exactly
+            // where it sits and never nudges the layout.
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
             style={{
               margin: 0,
@@ -437,48 +387,3 @@ function RainbowInstallButton({
   );
 }
 
-/**
- * The SVG filter the frames use in steady state. `feTurbulence` plus a
- * small `feDisplacementMap` warps the edges a couple of pixels, which
- * combined with the bloom-in/wash-out blur transition reads as a
- * watercolor wash. The filter is defined once and reused.
- */
-function WatercolorFilter() {
-  return (
-    <svg
-      aria-hidden
-      style={{
-        position: "absolute",
-        width: 0,
-        height: 0,
-        pointerEvents: "none",
-      }}
-    >
-      <defs>
-        <filter
-          id="wc-edge"
-          x="-5%"
-          y="-5%"
-          width="110%"
-          height="110%"
-          colorInterpolationFilters="sRGB"
-        >
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.018"
-            numOctaves="2"
-            seed="4"
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale="3.5"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-    </svg>
-  );
-}

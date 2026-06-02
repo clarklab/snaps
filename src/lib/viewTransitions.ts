@@ -11,12 +11,6 @@ import { flushSync } from "react-dom";
  * JS-based morph (e.g. framer-motion's `layoutId`) on the same element,
  * or the two animations fight. `supportsViewTransitions()` lets callers
  * gate that.
- *
- * The state update is wrapped in `flushSync` so React commits the DOM
- * *synchronously* before `startViewTransition` snapshots it. Without this,
- * a callback invoked outside a React event handler (e.g. the guided tour's
- * async timeline) would be batched into a microtask and run after the
- * snapshot — freezing a stale frame and making the morph look like it jumps.
  */
 
 export function supportsViewTransitions(): boolean {
@@ -27,7 +21,28 @@ export function supportsViewTransitions(): boolean {
   );
 }
 
+/**
+ * For navigation triggered from a React event handler (e.g. tapping a tile).
+ * React commits the update at the right moment for the transition to capture
+ * the before/after states, so we pass the callback straight through — do NOT
+ * wrap it in `flushSync` here, which changes the commit timing and breaks the
+ * hero morph on tap.
+ */
 export function startTransition(cb: () => void): void {
+  if (supportsViewTransitions()) {
+    document.startViewTransition(cb);
+  } else {
+    cb();
+  }
+}
+
+/**
+ * For navigation triggered OUTSIDE a React event — e.g. the guided tour's
+ * async (setTimeout) timeline. There, React batches the state update into a
+ * microtask that would run *after* the transition snapshots the DOM, freezing
+ * a stale frame. `flushSync` commits synchronously so the snapshot is fresh.
+ */
+export function startTransitionSync(cb: () => void): void {
   if (supportsViewTransitions()) {
     document.startViewTransition(() => flushSync(cb));
   } else {

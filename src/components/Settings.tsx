@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { COLORS } from "../colors";
 import { estimateUsage } from "../lib/db";
 import { haptic } from "../lib/haptics";
+import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useSampleLoader } from "../state/useSampleLoader";
 import { useStore } from "../state/store";
 import { useTheme, type AppearanceMode } from "../state/theme";
 import { ProgressBar } from "./Progress";
 import { Sheet } from "./Sheet";
+import { useToast } from "./Toast";
 
 const MODES: { id: AppearanceMode; label: string }[] = [
   { id: "system", label: "System" },
@@ -23,6 +25,8 @@ export function Settings({
 }) {
   const { mode, setMode } = useTheme();
   const store = useStore();
+  const toast = useToast();
+  const install = useInstallPrompt();
   const [usage, setUsage] = useState<string | null>(null);
 
   const {
@@ -41,6 +45,29 @@ export function Settings({
       setUsage(mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`);
     });
   }, [open]);
+
+  const handleInstall = async () => {
+    haptic("select");
+    if (install.canInstall) {
+      const accepted = await install.install();
+      if (accepted) haptic("success");
+      return;
+    }
+    if (install.needsManualInstructions) {
+      toast.push({
+        title: "Add to Home Screen",
+        detail: "Tap the share icon below, then choose Add to Home Screen.",
+        tone: "info",
+        timeout: 6000,
+      });
+      return;
+    }
+    toast.push({
+      title: "Install not available yet",
+      detail: "Try this from your phone's browser to install the app.",
+      tone: "info",
+    });
+  };
 
   const handleLoadSamples = async () => {
     haptic("select");
@@ -72,6 +99,29 @@ export function Settings({
             Done
           </button>
         </div>
+
+        {!install.isStandalone && (
+          <button
+            onClick={handleInstall}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 9,
+              width: "100%",
+              padding: "15px 16px",
+              marginBottom: 20,
+              borderRadius: 14,
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 17,
+              fontWeight: 700,
+            }}
+          >
+            <DownloadIcon />
+            Install Snaps
+          </button>
+        )}
 
         <SectionLabel>Appearance</SectionLabel>
         <div
@@ -257,6 +307,26 @@ function BigButton({
     >
       {children}
     </button>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path
+        d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 14v1.5A1.5 1.5 0 005.5 17h9a1.5 1.5 0 001.5-1.5V14"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
