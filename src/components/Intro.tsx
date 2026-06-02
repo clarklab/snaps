@@ -195,7 +195,11 @@ export function Intro({ onDone }: { onDone: () => void }) {
             maxHeight: "44vh",
           }}
         >
-          <AnimatePresence mode="wait" initial={false}>
+          {/* Default mode ("sync") so old + new crossfade in parallel.
+              The motion.img is absolute-positioned, so both can occupy
+              the same slot without disrupting layout. Total transition
+              time = TRANSITION_MS, not 2× — keeps each frame readable. */}
+          <AnimatePresence initial={false}>
             <motion.img
               key={idx}
               src={frame.src}
@@ -300,28 +304,24 @@ export function Intro({ onDone }: { onDone: () => void }) {
           gap: 10,
         }}
       >
-        <motion.button
-          onClick={handleInstall}
-          disabled={install.isStandalone}
-          whileTap={install.isStandalone ? undefined : { scale: 0.97 }}
-          style={{
-            width: "100%",
-            padding: "15px 20px",
-            borderRadius: 14,
-            fontSize: 17,
-            fontWeight: 700,
-            color: install.isStandalone ? "rgba(60, 60, 67, 0.3)" : "#ffffff",
-            background: install.isStandalone
-              ? "rgba(116, 116, 128, 0.08)"
-              : "#007aff",
-            boxShadow: install.isStandalone
-              ? "none"
-              : "0 6px 18px rgba(0,122,255,0.32)",
-            transition: "background 0.2s ease",
-          }}
-        >
-          {installLabel}
-        </motion.button>
+        {install.isStandalone ? (
+          <motion.button
+            disabled
+            style={{
+              width: "100%",
+              padding: "15px 20px",
+              borderRadius: 14,
+              fontSize: 17,
+              fontWeight: 700,
+              color: "rgba(60, 60, 67, 0.3)",
+              background: "rgba(116, 116, 128, 0.08)",
+            }}
+          >
+            {installLabel}
+          </motion.button>
+        ) : (
+          <RainbowInstallButton onClick={handleInstall} label={installLabel} />
+        )}
         <button
           onClick={dismiss}
           style={{
@@ -337,6 +337,103 @@ export function Intro({ onDone }: { onDone: () => void }) {
         </button>
       </div>
     </motion.div>
+  );
+}
+
+/**
+ * "Install App" button with a slow, swirling rainbow background.
+ *
+ * Two independent layers handle the motion:
+ *   - A full-spectrum conic-gradient that rotates once every 10 s. The
+ *     wrapper is inset:-80% so the rotated square still covers the
+ *     button without bare corners.
+ *   - A radial swirl that drifts on its own 7 s loop and is `mix-blend`
+ *     onto the conic layer, producing colourshifted hotspots that read
+ *     as liquid swirls rather than a rotating disc.
+ *
+ * Both layers sit behind a `position: relative` text span that carries
+ * a tiny drop-shadow so the label reads cleanly no matter which colour
+ * is passing under it.
+ */
+function RainbowInstallButton({
+  onClick,
+  label,
+}: {
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.97 }}
+      style={{
+        position: "relative",
+        width: "100%",
+        padding: "15px 20px",
+        borderRadius: 14,
+        overflow: "hidden",
+        isolation: "isolate", // contain mix-blend-mode to this button
+        color: "#ffffff",
+        background: "#1a1a1a", // fallback if gradients fail
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.18)",
+        border: "none",
+        cursor: "pointer",
+      }}
+    >
+      {/* Rotating spectrum. inset:-80% so the rotated bounding box
+          fully covers the visible button at any angle. */}
+      <span
+        aria-hidden
+        className="rainbow-spin"
+        style={{
+          position: "absolute",
+          inset: "-80%",
+          background:
+            "conic-gradient(from 0deg, #ff006e, #fb5607, #ffbe0b, #06ffa5, #3a86ff, #8338ec, #ff006e)",
+          animation: "rainbow-spin 10s linear infinite",
+          filter: "saturate(1.4) blur(14px)",
+        }}
+      />
+      {/* Drifting swirl — two offset radial blobs overlay-blended onto
+          the conic so the colour mix shifts unevenly. */}
+      <span
+        aria-hidden
+        className="rainbow-swirl"
+        style={{
+          position: "absolute",
+          inset: "-30%",
+          background:
+            "radial-gradient(circle at 30% 30%, rgba(255, 0, 255, 0.85) 0%, transparent 45%), radial-gradient(circle at 70% 70%, rgba(0, 220, 255, 0.85) 0%, transparent 45%)",
+          mixBlendMode: "overlay",
+          animation: "rainbow-swirl 7s ease-in-out infinite",
+          filter: "blur(18px)",
+        }}
+      />
+      {/* Subtle top sheen so the button reads as a domed surface
+          rather than a flat hue. */}
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.10) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+      <span
+        style={{
+          position: "relative",
+          zIndex: 1,
+          fontSize: 17,
+          fontWeight: 700,
+          letterSpacing: 0.1,
+          textShadow: "0 1px 2px rgba(0, 0, 0, 0.28)",
+        }}
+      >
+        {label}
+      </span>
+    </motion.button>
   );
 }
 

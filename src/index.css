@@ -137,6 +137,46 @@ img {
   margin: 0 auto;
 }
 
+/* ---- Animated rainbow button used on the intro CTA ----
+   Two independently-moving layers (a slow rotating conic-gradient and
+   a faster swirling radial blob) blended together produce a rich,
+   liquid colour shift that doesn't look like a single rotating disc. */
+@keyframes rainbow-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes rainbow-swirl {
+  0% {
+    transform: translate(-12%, -8%) scale(1);
+  }
+  25% {
+    transform: translate(15%, -12%) scale(1.2);
+  }
+  50% {
+    transform: translate(12%, 14%) scale(0.95);
+  }
+  75% {
+    transform: translate(-14%, 10%) scale(1.15);
+  }
+  100% {
+    transform: translate(-12%, -8%) scale(1);
+  }
+}
+@keyframes rainbow-hue {
+  to {
+    filter: blur(18px) saturate(1.6) hue-rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-spin,
+  .rainbow-swirl,
+  .rainbow-hue {
+    animation: none !important;
+  }
+}
+
 /* ---- View Transitions (Chrome 111+, Safari 18+) ----
    The hero morph runs at compositor level when supported. Keep it brisk
    so the morph feels snappy, and use ease-in-out rather than the default
