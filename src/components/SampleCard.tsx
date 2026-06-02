@@ -101,7 +101,7 @@ export function SampleCard({
       </div>
 
       <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 700 }}>
-        New here? Take the quick tour
+        How Snaps works
       </h2>
       <p
         style={{
@@ -111,8 +111,10 @@ export function SampleCard({
           color: "var(--label-secondary)",
         }}
       >
-        We'll drop in some sample photos and show you how a board fills up,
-        switches layouts, and looks in light and dark — in about ten seconds.
+        Pick a color, then fill its grid with nine photos of things in that
+        color — a blue door, a blue mug, a blue sky. Want to see it first? Tap
+        below and we'll load some samples and show you around in about ten
+        seconds.
       </p>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

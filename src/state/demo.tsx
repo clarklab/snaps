@@ -128,21 +128,22 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        // 1 — Cascade the samples into every empty board.
+        // 1 — Cascade the samples into every empty board, then linger on the
+        //     freshly-filled grid.
         setLoading(true);
         await loadSampleBoards(store, manifest, (done, total) =>
           setProgress({ done, total }),
         );
         setLoading(false);
-        await wait(1000);
+        await wait(1500);
 
-        // 2 — Open the Red board.
+        // 2 — Open the Red board and admire the photos.
         nav("red");
-        await wait(950);
+        await wait(1450);
 
-        // 3 — Turn on its mosaic layout.
+        // 3 — Turn on its mosaic layout, then hold on it.
         setMosaic(true);
-        await wait(1100);
+        await wait(1600);
 
         // 4 — Open Settings and flip to dark mode.
         setSettingsOpen(true);
@@ -152,14 +153,14 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setSettingsOpen(false);
         await wait(650);
 
-        // 5 — Back to the (now dark) home grid.
+        // 5 — Back to the (now dark) home grid; hold on the photos.
         setMosaic(false);
         nav(null);
-        await wait(900);
+        await wait(1400);
 
         // 6 — Open the Black board to show photos on the dark canvas.
         nav("black");
-        await wait(1100);
+        await wait(1600);
 
         // 7 — Open Settings and flip back to light mode.
         setSettingsOpen(true);
@@ -169,13 +170,16 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setSettingsOpen(false);
         await wait(650);
 
-        // 8 — Return all the way home and let the populated grid settle…
-        nav(null);
-        await wait(1100);
-        // …then clear the samples so the user watches the board empty out
-        // on the home screen (never while a board is still open).
+        // 8 — Return all the way home. This is the resting state, so close
+        //     plainly (no view transition) — a lingering transition frame
+        //     would otherwise sit on top as the final view. The user sees the
+        //     full, photo-filled home grid…
+        setMosaic(false);
+        setSelectedId(null);
+        await wait(1500);
+        // …then the samples clear out, on the home screen, in plain sight.
         await store.clearSamples();
-        await wait(750);
+        await wait(900);
 
         // Restore the user's own appearance choice and bow out.
         setMode(originalMode.current);

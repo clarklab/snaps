@@ -19,14 +19,14 @@ export function ColorBoard({
   onSelect: (colorId: string) => void;
   supportsVT: boolean;
 }) {
-  const store = useStore();
   const demo = useDemo();
 
   return (
     <div style={{ padding: "4px 16px 28px" }}>
-      {demo.loading ? (
-        // The guided tour's sample cascade — shown right here so the photos
-        // visibly pour into the grid below.
+      {/* The guided tour's sample cascade — shown right here so the photos
+          visibly pour into the grid below. (The "how it works" explainer
+          lives in the welcome tour card, not on the grid.) */}
+      {demo.loading && (
         <div style={{ margin: "0 4px 16px" }}>
           <div
             style={{
@@ -48,23 +48,6 @@ export function ColorBoard({
             tint="var(--accent)"
           />
         </div>
-      ) : (
-        store.totalFilled === 0 && (
-          // The little "how it works" tooltip shown on a fresh board.
-          <div style={{ margin: "0 4px 16px" }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13.5,
-                lineHeight: 1.4,
-                color: "var(--label-secondary)",
-              }}
-            >
-              Pick a color, then fill its grid with nine photos of things in
-              that color.
-            </p>
-          </div>
-        )
       )}
 
       <div
