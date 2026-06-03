@@ -17,9 +17,12 @@ const MODES: { id: AppearanceMode; label: string }[] = [
 export function Settings({
   open,
   onClose,
+  onReplayIntro,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Reopen the watercolor intro overlay; the App owns the visible state. */
+  onReplayIntro: () => void;
 }) {
   const { mode, setMode } = useTheme();
   const store = useStore();
@@ -175,6 +178,16 @@ export function Settings({
             )}
           </>
         )}
+
+        <SectionLabel style={{ marginTop: 22 }}>About</SectionLabel>
+        <BigButton
+          onClick={() => {
+            haptic("select");
+            onReplayIntro();
+          }}
+        >
+          Replay intro
+        </BigButton>
 
         <SectionLabel style={{ marginTop: 22 }}>Your Photos</SectionLabel>
         <Row label="Storage" value="On this device" />

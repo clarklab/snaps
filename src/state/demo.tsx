@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useToast } from "../components/Toast";
 import {
   getSamplesManifest,
   loadSampleBoards,
@@ -68,6 +69,7 @@ const ABORT = Symbol("demo-abort");
 export function DemoProvider({ children }: { children: ReactNode }) {
   const store = useStore();
   const { mode, setMode } = useTheme();
+  const toast = useToast();
 
   const [manifest, setManifest] = useState<SamplesManifest | null>(null);
   const [running, setRunning] = useState(false);
@@ -102,13 +104,17 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setMode(originalMode.current);
     resetView();
     setRunning(false);
-  }, [running, setMode, resetView]);
+    toast.setMuted(false);
+  }, [running, setMode, resetView, toast]);
 
   const start = useCallback(() => {
     if (running || !manifest) return;
     const myId = ++runId.current;
     originalMode.current = modeRef.current;
     haptic("select");
+    // Mute the toast layer for the whole choreography — sync/cache/recovery
+    // banners would compete with the tour. Unmuted at end (or on skip).
+    toast.setMuted(true);
     setRunning(true);
     setProgress({ done: 0, total: 0 });
 
@@ -170,26 +176,28 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setSettingsOpen(false);
         await wait(650);
 
-        // 8 — Return all the way home. This is the resting state, so close
-        //     plainly (no view transition) — a lingering transition frame
-        //     would otherwise sit on top as the final view. The user sees the
-        //     full, photo-filled home grid…
+        // 8 — Return all the way home through the same morph a real back tap
+        //     uses, so the close looks identical to the live app. The user
+        //     sees the full, photo-filled home grid…
         setMosaic(false);
-        setSelectedId(null);
+        nav(null);
         await wait(1500);
         // …then the samples clear out, on the home screen, in plain sight.
         await store.clearSamples();
         await wait(900);
 
-        // Restore the user's own appearance choice and bow out.
+        // Restore the user's own appearance choice and bow out. resetView()
+        // also re-asserts selectedId = null so nothing stays mounted, and
+        // unmuting toasts last lets late SW events surface normally again.
         setMode(originalMode.current);
         resetView();
         setRunning(false);
+        toast.setMuted(false);
       } catch {
         /* aborted via stop() — it already restored everything */
       }
     })();
-  }, [running, manifest, store, setMode, resetView]);
+  }, [running, manifest, store, setMode, resetView, toast]);
 
   const value = useMemo<DemoValue>(
     () => ({

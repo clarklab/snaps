@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   COLORS,
   SLOTS_PER_BOARD,
@@ -10,6 +11,7 @@ import { useDemo } from "../state/demo";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
 import { ProgressBar } from "./Progress";
+import { ShareSheet } from "./ShareSheet";
 import { Thumbnail } from "./Thumbnail";
 
 export function ColorBoard({
@@ -20,6 +22,9 @@ export function ColorBoard({
   supportsVT: boolean;
 }) {
   const demo = useDemo();
+  const store = useStore();
+  const [shareOpen, setShareOpen] = useState(false);
+  const allComplete = store.totalFilled === store.totalSlots;
 
   return (
     <div style={{ padding: "4px 16px 28px" }}>
@@ -66,7 +71,64 @@ export function ColorBoard({
           />
         ))}
       </div>
+
+      {/* Overall share — surfaces only once every color is full so the user
+          earned it. Same shape as the per-color share button. */}
+      {allComplete && (
+        <motion.button
+          onClick={() => {
+            haptic("select");
+            setShareOpen(true);
+          }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            width: "100%",
+            marginTop: 22,
+            padding: "14px 18px",
+            borderRadius: 14,
+            background: "var(--accent)",
+            color: "#ffffff",
+            fontSize: 16,
+            fontWeight: 700,
+            boxShadow: "0 6px 20px rgba(0, 122, 255, 0.28)",
+          }}
+        >
+          <ShareIcon />
+          Share my Snaps
+        </motion.button>
+      )}
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        target={{ kind: "overall" }}
+      />
     </div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M9 11.5V2.5M9 2.5l-3 3M9 2.5l3 3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.5 9v5.5a1 1 0 001 1h9a1 1 0 001-1V9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

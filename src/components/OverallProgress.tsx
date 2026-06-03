@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { COLORS } from "../colors";
+import { COLORS, swatch } from "../colors";
 import { useStore } from "../state/store";
+import { useTheme } from "../state/theme";
 import { ProgressBar } from "./Progress";
 
 /**
  * Compact overall progress that lives inline in the top bar. Tap to toggle
- * between "colors complete" and "photos placed".
+ * between "colors complete" and "photos placed". The label reads as one
+ * line: "N/M" then a tiny 3×3 of color dots in place of the word
+ * "colors" / "photos" — same shorthand the rest of the app speaks.
  */
 export function OverallProgress() {
   const store = useStore();
@@ -47,28 +50,57 @@ export function OverallProgress() {
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          lineHeight: 1.05,
+          alignItems: "center",
+          gap: 6,
+          fontSize: 13,
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1,
         }}
       >
-        <span
-          style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}
-        >
+        <span>
           {value}/{total}
         </span>
-        <span
-          style={{
-            fontSize: 9.5,
-            fontWeight: 600,
-            letterSpacing: 0.3,
-            textTransform: "uppercase",
-            color: "var(--label-tertiary)",
-          }}
-        >
-          {showPhotos ? "photos" : "colors"}
-        </span>
+        <ColorDotsIcon />
       </div>
     </button>
+  );
+}
+
+/**
+ * A 3×3 of tiny color dots — the rainbow shorthand the app uses on the
+ * intro card and elsewhere. Stands in for the word "colors" so the
+ * header reads as one tight line.
+ */
+function ColorDotsIcon() {
+  const { scheme } = useTheme();
+  const dot = 3.5;
+  const gap = 1.5;
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(3, ${dot}px)`,
+        gridAutoRows: `${dot}px`,
+        gap,
+        flexShrink: 0,
+      }}
+    >
+      {COLORS.map((c) => (
+        <span
+          key={c.id}
+          style={{
+            width: dot,
+            height: dot,
+            borderRadius: 999,
+            background: swatch(c, scheme),
+            boxShadow: c.needsBorder
+              ? "inset 0 0 0 0.5px var(--hairline)"
+              : "none",
+          }}
+        />
+      ))}
+    </div>
   );
 }

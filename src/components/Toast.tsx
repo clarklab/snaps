@@ -40,6 +40,11 @@ export interface Toast {
 interface ToastValue {
   push: (t: Omit<Toast, "id">) => number;
   dismiss: (id?: number) => void;
+  /**
+   * Suppress all toasts (existing + future) until unmuted. The guided tour
+   * uses this so SW/storage/offline banners don't intrude on the choreography.
+   */
+  setMuted: (muted: boolean) => void;
 }
 
 const ToastContext = createContext<ToastValue | null>(null);
@@ -54,6 +59,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const currentRef = useRef<Toast | null>(null);
   currentRef.current = toast;
 
+  // Ref-not-state: muting is read on every push() and must take effect
+  // synchronously when the caller sets it (the demo flips this on right
+  // before kicking off the choreography, in the same task).
+  const mutedRef = useRef(false);
+
   const dismiss = useCallback((id?: number) => {
     if (id != null && currentRef.current?.id !== id) return;
     if (timerRef.current) {
@@ -64,6 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const push = useCallback((t: Omit<Toast, "id">): number => {
+    if (mutedRef.current) return -1;
     const id = ++idRef.current;
     const next: Toast = { id, timeout: 3800, ...t };
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -77,11 +88,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     return id;
   }, []);
 
+  const setMuted = useCallback((muted: boolean) => {
+    mutedRef.current = muted;
+    if (muted) {
+      // Drop any toast that's already on screen and cancel its timer so the
+      // user lands in a clean state the moment muting begins.
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setToast(null);
+    }
+  }, []);
+
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
-  const value = useMemo<ToastValue>(() => ({ push, dismiss }), [push, dismiss]);
+  const value = useMemo<ToastValue>(
+    () => ({ push, dismiss, setMuted }),
+    [push, dismiss, setMuted],
+  );
 
   return (
     <ToastContext.Provider value={value}>

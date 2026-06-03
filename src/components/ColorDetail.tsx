@@ -14,6 +14,7 @@ import { useTheme } from "../state/theme";
 import { Confetti } from "./Confetti";
 import { PhotoViewer } from "./PhotoViewer";
 import { ProgressBar } from "./Progress";
+import { ShareSheet } from "./ShareSheet";
 import { Sheet } from "./Sheet";
 import { Thumbnail } from "./Thumbnail";
 
@@ -40,6 +41,7 @@ export function ColorDetail({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [viewerSlot, setViewerSlot] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [mosaic, setMosaic] = useState<MosaicState | null>(null);
 
@@ -364,6 +366,37 @@ export function ColorDetail({
         })}
       </motion.div>
 
+      {/* Share button — only when the board is full. Sits below the grid
+          so it reads as the natural next step once the user has all nine. */}
+      {fill === SLOTS_PER_BOARD && (
+        <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
+          <motion.button
+            onClick={() => {
+              haptic("select");
+              setShareOpen(true);
+            }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              width: "100%",
+              padding: "14px 18px",
+              borderRadius: 14,
+              background: "var(--accent)",
+              color: "#ffffff",
+              fontSize: 16,
+              fontWeight: 700,
+              boxShadow: "0 6px 20px rgba(0, 122, 255, 0.28)",
+            }}
+          >
+            <ShareIcon />
+            Share {color.name}
+          </motion.button>
+        </div>
+      )}
+
       {/* Hidden file inputs */}
       <input
         ref={libRef}
@@ -491,7 +524,43 @@ export function ColorDetail({
           />
         )}
       </AnimatePresence>
+
+      {/* Share — mirrors the board's current layout (3×3 or mosaic) so the
+          baked image matches what the user is looking at. */}
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        target={{
+          kind: "board",
+          color,
+          slots,
+          mosaic: mosaic
+            ? { areas: mosaic.template.areas, order: mosaic.order }
+            : undefined,
+        }}
+      />
     </motion.div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M9 11.5V2.5M9 2.5l-3 3M9 2.5l3 3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.5 9v5.5a1 1 0 001 1h9a1 1 0 001-1V9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

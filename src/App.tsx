@@ -1,9 +1,9 @@
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { AnimatePresence, LayoutGroup } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { colorById } from "./colors";
 import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
-import { Intro, introWasSeen } from "./components/Intro";
+import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
 import { SampleCard } from "./components/SampleCard";
 import { Settings } from "./components/Settings";
@@ -22,6 +22,10 @@ export default function App() {
   // no flicker on first paint: returning users render the home grid
   // immediately, first-time users render the intro immediately.
   const [introOpen, setIntroOpen] = useState(() => !introWasSeen());
+  // Bumped each time the user replays the intro; keyed onto the Intro
+  // component to force a fresh mount so the frame counter starts back at 0
+  // rather than wherever the previous mount left it.
+  const [introRunId, setIntroRunId] = useState(0);
   const [tourSeen, setTourSeen] = useState(() => safeGet(TOUR_SEEN_KEY) === "1");
   const online = useNetworkStatus();
   const toast = useToast();
@@ -153,20 +157,37 @@ export default function App() {
 
       <ColorBoard onSelect={openColor} supportsVT={supportsVT} />
 
-      {/* Detail overlays the home and morphs from the tapped tile */}
-      <AnimatePresence>
-        {selected && (
-          <ColorDetail
-            key={selected.id}
-            color={selected}
-            supportsVT={supportsVT}
-            onBack={closeColor}
-            forceMosaic={demo.running ? demo.mosaic : undefined}
-          />
-        )}
-      </AnimatePresence>
+      {/* Detail overlays the home and morphs from the tapped tile.
+          Plain conditional (no AnimatePresence): each transition through
+          startViewTransition() commits one selectedId at a time, and the
+          morph is driven by the View Transitions API (or layoutId in the
+          fallback). Wrapping in AnimatePresence here used to leave prior
+          ColorDetail mounts orphaned in the DOM when the guided tour
+          flipped boards back-to-back. */}
+      {selected && (
+        <ColorDetail
+          key={selected.id}
+          color={selected}
+          supportsVT={supportsVT}
+          onBack={closeColor}
+          forceMosaic={demo.running ? demo.mosaic : undefined}
+        />
+      )}
 
-      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <Settings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onReplayIntro={() => {
+          // Forget that the intro was seen and pop it back open over the
+          // grid. Closing Settings first so the intro isn't covered by the
+          // settings sheet on the way back in. The bumped runId forces a
+          // fresh mount so the frame counter restarts at the first slide.
+          safeSet(INTRO_SEEN_KEY, "");
+          setSettingsOpen(false);
+          setIntroRunId((id) => id + 1);
+          setIntroOpen(true);
+        }}
+      />
 
       {/* First-run nudge to play the guided tour. */}
       <AnimatePresence>
@@ -180,16 +201,21 @@ export default function App() {
       </AnimatePresence>
 
       {/* While the tour plays, a transparent layer captures taps so the
-          choreography isn't fought by stray touches; tapping it skips. */}
-      <AnimatePresence>
-        {demo.running && <TourSkipLayer key="tour-skip" onSkip={demo.stop} />}
-      </AnimatePresence>
+          choreography isn't fought by stray touches; tapping it skips.
+          Rendered as a plain conditional rather than via AnimatePresence:
+          AnimatePresence was leaving the layer mounted at opacity 0 with
+          pointerEvents: auto after the tour ended, silently swallowing
+          taps on the home grid. */}
+      {demo.running && <TourSkipLayer onSkip={demo.stop} />}
 
-      {/* Intro overlay — covers everything on first launch. Once dismissed,
-          the exit animation fades it away to reveal the home grid. */}
-      <AnimatePresence>
-        {introOpen && <Intro key="intro" onDone={() => setIntroOpen(false)} />}
-      </AnimatePresence>
+      {/* Intro overlay — covers everything on first launch. Plain conditional
+          rendering instead of AnimatePresence: rapid open/close (Skip then
+          Replay) was leaving the previous Intro mounted at low opacity over
+          the new one. The Intro fades itself out internally on dismiss, so
+          dropping the wrapper exit doesn't lose anything visible. */}
+      {introOpen && (
+        <Intro key={`intro-${introRunId}`} onDone={() => setIntroOpen(false)} />
+      )}
     </LayoutGroup>
   );
 }
@@ -197,46 +223,21 @@ export default function App() {
 /**
  * Full-screen transparent catcher shown during the guided tour. It sits
  * above every tour-driven surface so the user's taps don't interfere with
- * the choreography, and offers a single, obvious "Skip" affordance.
+ * the choreography (no visible affordance — the tour is short enough to
+ * just let it play through). Tapping it still skips, in case someone
+ * really wants out.
  */
 function TourSkipLayer({ onSkip }: { onSkip: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+    <div
       onClick={onSkip}
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 90,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        // Transparent — the tour underneath stays fully visible.
         background: "transparent",
       }}
-    >
-      <motion.div
-        initial={{ y: -16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        style={{
-          marginTop: "calc(var(--safe-top) + 12px)",
-          padding: "8px 16px",
-          borderRadius: 999,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          color: "#fff",
-          fontSize: 14,
-          fontWeight: 600,
-          pointerEvents: "none",
-        }}
-      >
-        Tap anywhere to skip
-      </motion.div>
-    </motion.div>
+    />
   );
 }
 

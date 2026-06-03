@@ -33,25 +33,34 @@ export function introWasSeen(): boolean {
 
 interface Frame {
   src: string;
+  /** Caption text. Wrap a span in `**…**` to render those words bold. */
   text: string;
 }
 
 const FRAMES: Frame[] = [
   {
     src: "/intro/intro-1.webp",
-    text: "We're going on a colorful snaps adventure!",
+    text: "You're going on a photo **color hunt!**",
   },
   {
     src: "/intro/intro-2.webp",
-    text: "Wow, check out this blue door!",
+    text: "Boy howdy, check out this **blue door!**",
   },
   {
     src: "/intro/intro-3.webp",
-    text: "I'll add it to my blue bucket.",
+    text: "Let's add it to my **blue bucket.**",
+  },
+  {
+    src: "/intro/intro-4.webp",
+    text: "Oh lucky fellow! This car and street is **yellow!**",
+  },
+  {
+    src: "/intro/intro-5.webp",
+    text: "Snaps turns **travel into color** hunt collage art.",
   },
 ];
 
-const HOLD_MS = 3000; // how long each frame stays before transitioning
+const HOLD_MS = 3200; // how long each frame stays before transitioning
 const TRANSITION_MS = 850; // crossfade duration; long enough to "bleed"
 
 export function Intro({ onDone }: { onDone: () => void }) {
@@ -265,29 +274,11 @@ export function Intro({ onDone }: { onDone: () => void }) {
           }}
         >
         <AnimatePresence mode="wait" initial={false}>
-          <motion.p
+          <AnimatedCaption
             key={idx}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
-            style={{
-              margin: 0,
-              // Averia Serif Libre italic — a soft, slightly-wobbly serif
-              // that reads as hand-painted text on the watercolor paper.
-              fontFamily:
-                '"Averia Serif Libre", "Iowan Old Style", "Georgia", serif',
-              fontStyle: "italic",
-              fontWeight: 400,
-              fontSize: 26,
-              lineHeight: 1.28,
-              letterSpacing: 0,
-              color: "#1c1c1e",
-              maxWidth: 380,
-            }}
-          >
-            {frame.text}
-          </motion.p>
+            text={frame.text}
+            reducedMotion={reducedMotion}
+          />
         </AnimatePresence>
         </div>
       </div>
@@ -338,6 +329,95 @@ export function Intro({ onDone }: { onDone: () => void }) {
       </div>
     </motion.div>
   );
+}
+
+/**
+ * Captions animate in word-by-word — each word fades up into place with a
+ * small stagger, so the line reads as if it's being written by hand onto
+ * the page rather than appearing all at once. Words wrapped in `**…**` in
+ * the source text are rendered bold; the asterisks are stripped.
+ *
+ * Exit is a single, quick fade so we don't hold the next frame waiting on a
+ * per-word stagger when transitioning.
+ */
+function AnimatedCaption({
+  text,
+  reducedMotion,
+}: {
+  text: string;
+  reducedMotion: boolean;
+}) {
+  const words = useMemo(() => parseBoldWords(text), [text]);
+
+  return (
+    <motion.p
+      // The container handles only the exit fade — per-word enter delays
+      // are explicit on each span below. (Tried staggerChildren on the
+      // container and it would only start the first child, not subsequent
+      // ones; explicit delays are dead simple and behave the same.)
+      initial={false}
+      exit={{ opacity: 0, transition: { duration: 0.22 } }}
+      style={{
+        margin: 0,
+        // Averia Serif Libre italic — a soft, slightly-wobbly serif that
+        // reads as hand-painted text on the watercolor paper.
+        fontFamily:
+          '"Averia Serif Libre", "Iowan Old Style", "Georgia", serif',
+        fontStyle: "italic",
+        fontWeight: 400,
+        fontSize: 26,
+        lineHeight: 1.28,
+        letterSpacing: 0,
+        color: "#1c1c1e",
+        maxWidth: 380,
+      }}
+    >
+      {words.map((w, i) => (
+        <motion.span
+          key={i}
+          initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 14 }}
+          animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          transition={{
+            duration: reducedMotion ? 0.2 : 0.42,
+            delay: reducedMotion ? 0 : 0.06 + i * 0.055,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          style={{
+            display: "inline-block",
+            // Words can't share a text node and still animate independently,
+            // so spacing lives on the span itself rather than as whitespace.
+            marginRight: "0.3em",
+            fontWeight: w.bold ? 700 : 400,
+            // The bold span tightens the visual rhythm of the line a touch
+            // — without this it reads as a separate weight rather than a
+            // wordmark inside the sentence.
+            letterSpacing: w.bold ? -0.2 : 0,
+          }}
+        >
+          {w.text}
+        </motion.span>
+      ))}
+    </motion.p>
+  );
+}
+
+interface CaptionWord {
+  text: string;
+  bold: boolean;
+}
+
+function parseBoldWords(text: string): CaptionWord[] {
+  // The source uses Markdown-style `**bold**` markers. Splitting on `**`
+  // yields alternating regular / bold segments; whitespace inside each
+  // segment splits the words.
+  const out: CaptionWord[] = [];
+  const segments = text.split("**");
+  for (let i = 0; i < segments.length; i++) {
+    const bold = i % 2 === 1;
+    const words = segments[i].split(/\s+/).filter(Boolean);
+    for (const w of words) out.push({ text: w, bold });
+  }
+  return out;
 }
 
 /**
