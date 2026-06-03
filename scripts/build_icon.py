@@ -33,12 +33,20 @@ PALETTE = [
 # Dark canvas so the colored iris glows; matches the PWA theme/background.
 BG = (12, 12, 14, 255)
 
-# Each hue appears twice around the ring for a smooth, full spectrum.
-DOT_COUNT = 14
-# Ring radius as a fraction of the icon size (centers of the dots sit here).
-RING_FRAC = 0.30
-# Dot radius relative to the spacing between neighbours; >0.5 → they overlap.
-OVERLAP = 1.18
+# One dot per brand hue — keeps the loop reading as the chromatic
+# palette itself rather than a continuous gradient. Fewer dots = bigger,
+# more distinct circles around the loop.
+DOT_COUNT = 7
+# Ring radius as a fraction of the icon size (centers of the dots sit
+# here). Pulled in from 0.30 so the iris sits inside a touch more
+# breathing room — important on iOS where the home-screen mask trims a
+# little off each corner.
+RING_FRAC = 0.22
+# Dot radius relative to the spacing between neighbours; >0.5 → they
+# overlap. Lower than the 14-dot version because the larger 7-dot
+# circles already meet at ~1.0; 1.08 just nudges them into a connected
+# loop without smothering each hue.
+OVERLAP = 1.08
 
 SS = 4  # supersample factor for crisp anti-aliased edges
 
