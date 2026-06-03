@@ -119,76 +119,6 @@ export function Settings({
           value={`${store.completedColors} of ${COLORS.length}`}
         />
 
-        {samplesAvailable && (
-          <>
-            <SectionLabel style={{ marginTop: 22 }}>Sample boards</SectionLabel>
-            {seeding ? (
-              <div style={{ padding: "4px 2px 2px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 14,
-                    marginBottom: 8,
-                    color: "var(--label-secondary)",
-                  }}
-                >
-                  <span>Loading example photos…</span>
-                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {progress.done} / {progress.total || "…"}
-                  </span>
-                </div>
-                <ProgressBar
-                  value={progress.done}
-                  total={progress.total || 1}
-                  tint="var(--accent)"
-                />
-              </div>
-            ) : store.hasSamples ? (
-              <BigButton destructive onClick={handleClearSamples}>
-                Remove sample photos
-              </BigButton>
-            ) : (
-              <>
-                <BigButton onClick={handleLoadSamples}>Load sample boards</BigButton>
-                <p
-                  style={{
-                    fontSize: 12.5,
-                    lineHeight: 1.45,
-                    color: "var(--label-secondary)",
-                    margin: "10px 2px 0",
-                  }}
-                >
-                  Fills your empty boards with curated single-color photos so you
-                  can see finished collages. Photos from Unsplash.
-                </p>
-              </>
-            )}
-            {note && (
-              <p
-                style={{
-                  fontSize: 12.5,
-                  lineHeight: 1.45,
-                  color: "var(--label-secondary)",
-                  margin: "10px 2px 0",
-                }}
-              >
-                {note}
-              </p>
-            )}
-          </>
-        )}
-
-        <SectionLabel style={{ marginTop: 22 }}>About</SectionLabel>
-        <BigButton
-          onClick={() => {
-            haptic("select");
-            onReplayIntro();
-          }}
-        >
-          Replay intro
-        </BigButton>
-
         <SectionLabel style={{ marginTop: 22 }}>Your Photos</SectionLabel>
         <Row label="Storage" value="On this device" />
         <Row label="Quality" value="Original, uncompressed" />
@@ -205,6 +135,86 @@ export function Settings({
           bytes in your browser's local storage — nothing is uploaded or
           compressed.
         </p>
+
+        {/* Demo controls live together at the bottom — replay the intro
+            and load/remove the curated sample photos. Two-up button row so
+            both actions feel equally weighted. */}
+        <SectionLabel style={{ marginTop: 24 }}>Demo</SectionLabel>
+        {seeding ? (
+          <div style={{ padding: "4px 2px 2px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 14,
+                marginBottom: 8,
+                color: "var(--label-secondary)",
+              }}
+            >
+              <span>Loading example photos…</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                {progress.done} / {progress.total || "…"}
+              </span>
+            </div>
+            <ProgressBar
+              value={progress.done}
+              total={progress.total || 1}
+              tint="var(--accent)"
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: samplesAvailable ? "1fr 1fr" : "1fr",
+              gap: 8,
+            }}
+          >
+            <SmallButton
+              onClick={() => {
+                haptic("select");
+                onReplayIntro();
+              }}
+            >
+              Replay intro
+            </SmallButton>
+            {samplesAvailable &&
+              (store.hasSamples ? (
+                <SmallButton destructive onClick={handleClearSamples}>
+                  Remove samples
+                </SmallButton>
+              ) : (
+                <SmallButton onClick={handleLoadSamples}>
+                  Load samples
+                </SmallButton>
+              ))}
+          </div>
+        )}
+        {samplesAvailable && !seeding && !store.hasSamples && (
+          <p
+            style={{
+              fontSize: 12.5,
+              lineHeight: 1.45,
+              color: "var(--label-secondary)",
+              margin: "10px 2px 0",
+            }}
+          >
+            Fills empty boards with curated single-color photos from Unsplash
+            so you can see what finished collages look like.
+          </p>
+        )}
+        {note && (
+          <p
+            style={{
+              fontSize: 12.5,
+              lineHeight: 1.45,
+              color: "var(--label-secondary)",
+              margin: "10px 2px 0",
+            }}
+          >
+            {note}
+          </p>
+        )}
 
         <p
           style={{
@@ -245,7 +255,8 @@ function SectionLabel({
   );
 }
 
-function BigButton({
+/** Compact button used in the two-up Demo row. */
+function SmallButton({
   children,
   onClick,
   destructive,
@@ -260,12 +271,13 @@ function BigButton({
       style={{
         display: "block",
         width: "100%",
-        padding: "14px 16px",
-        borderRadius: 14,
+        padding: "12px 12px",
+        borderRadius: 12,
         background: "var(--fill-quaternary)",
-        fontSize: 16,
+        fontSize: 14.5,
         fontWeight: 600,
         color: destructive ? "#ff453a" : "var(--accent)",
+        textAlign: "center",
       }}
     >
       {children}

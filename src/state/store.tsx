@@ -97,6 +97,8 @@ interface StoreValue {
   clearBoard: (colorId: string) => Promise<void>;
   /** Whether any currently-placed photo came from the sample set. */
   hasSamples: boolean;
+  /** Number of placed photos that came from the sample set. */
+  sampleCount: number;
   /** Removes every sample photo, leaving the player's own photos intact. */
   clearSamples: () => Promise<void>;
 }
@@ -312,6 +314,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       movePhoto,
       clearBoard,
       hasSamples: sampleIds.length > 0,
+      sampleCount: sampleIds.length,
       clearSamples,
     }),
     [

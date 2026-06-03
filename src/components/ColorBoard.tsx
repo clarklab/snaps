@@ -25,6 +25,10 @@ export function ColorBoard({
   const store = useStore();
   const [shareOpen, setShareOpen] = useState(false);
   const allComplete = store.totalFilled === store.totalSlots;
+  // "Every placed photo came from the sample set" — used to surface a
+  // secondary Remove-samples affordance under the overall Share button.
+  const allAreSamples =
+    allComplete && store.sampleCount === store.totalSlots;
 
   return (
     <div style={{ padding: "4px 16px 28px" }}>
@@ -75,31 +79,59 @@ export function ColorBoard({
       {/* Overall share — surfaces only once every color is full so the user
           earned it. Same shape as the per-color share button. */}
       {allComplete && (
-        <motion.button
-          onClick={() => {
-            haptic("select");
-            setShareOpen(true);
-          }}
-          whileTap={{ scale: 0.97 }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            width: "100%",
-            marginTop: 22,
-            padding: "14px 18px",
-            borderRadius: 14,
-            background: "var(--accent)",
-            color: "#ffffff",
-            fontSize: 16,
-            fontWeight: 700,
-            boxShadow: "0 6px 20px rgba(0, 122, 255, 0.28)",
-          }}
-        >
-          <ShareIcon />
-          Share my Snaps
-        </motion.button>
+        <>
+          <motion.button
+            onClick={() => {
+              haptic("select");
+              setShareOpen(true);
+            }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              width: "100%",
+              marginTop: 22,
+              padding: "14px 18px",
+              borderRadius: 14,
+              background: "var(--accent)",
+              color: "#ffffff",
+              fontSize: 16,
+              fontWeight: 700,
+              boxShadow: "0 6px 20px rgba(0, 122, 255, 0.28)",
+            }}
+          >
+            <ShareIcon />
+            Share my Snaps
+          </motion.button>
+          {/* Secondary action: only when the grid is entirely sample data.
+              Sharing a complete demo set is fun the first time, but the
+              prominent next step is clearing it so the user can collect
+              their own photos. */}
+          {allAreSamples && (
+            <motion.button
+              onClick={() => {
+                haptic("tap");
+                void store.clearSamples();
+              }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                display: "block",
+                width: "100%",
+                marginTop: 10,
+                padding: "12px 18px",
+                borderRadius: 14,
+                background: "var(--fill-quaternary)",
+                color: "#ff453a",
+                fontSize: 15,
+                fontWeight: 600,
+              }}
+            >
+              Remove sample photos
+            </motion.button>
+          )}
+        </>
       )}
 
       <ShareSheet

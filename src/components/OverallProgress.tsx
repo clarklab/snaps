@@ -87,20 +87,30 @@ function ColorDotsIcon() {
         flexShrink: 0,
       }}
     >
-      {COLORS.map((c) => (
-        <span
-          key={c.id}
-          style={{
-            width: dot,
-            height: dot,
-            borderRadius: 999,
-            background: swatch(c, scheme),
-            boxShadow: c.needsBorder
-              ? "inset 0 0 0 0.5px var(--hairline)"
-              : "none",
-          }}
-        />
-      ))}
+      {COLORS.map((c) => {
+        // The white tile vanishes into the white pill background in light
+        // mode (and the hairline border isn't enough at this size). Swap it
+        // for a light gray so the dot reads against either scheme.
+        const fill =
+          c.id === "white" && scheme === "light"
+            ? "rgba(60, 60, 67, 0.18)"
+            : swatch(c, scheme);
+        return (
+          <span
+            key={c.id}
+            style={{
+              width: dot,
+              height: dot,
+              borderRadius: 999,
+              background: fill,
+              boxShadow:
+                c.needsBorder && c.id !== "white"
+                  ? "inset 0 0 0 0.5px var(--hairline)"
+                  : "none",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

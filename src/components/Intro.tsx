@@ -52,7 +52,7 @@ const FRAMES: Frame[] = [
   },
   {
     src: "/intro/intro-4.webp",
-    text: "Oh lucky fellow! This car and street is **yellow!**",
+    text: "Oh lucky fellow! The car and sky are **yellow!**",
   },
   {
     src: "/intro/intro-5.webp",
@@ -171,10 +171,14 @@ export function Intro({ onDone }: { onDone: () => void }) {
           fontWeight: 500,
           padding: "6px 10px",
           borderRadius: 8,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
         }}
         aria-label="Skip intro"
       >
         Skip
+        <ExitToAppIcon />
       </button>
 
       {/* Image + caption are vertically centered together as one block in
@@ -313,19 +317,6 @@ export function Intro({ onDone }: { onDone: () => void }) {
         ) : (
           <RainbowInstallButton onClick={handleInstall} label={installLabel} />
         )}
-        <button
-          onClick={dismiss}
-          style={{
-            background: "transparent",
-            color: "rgba(60, 60, 67, 0.6)",
-            fontSize: 14,
-            fontWeight: 500,
-            padding: "6px 10px",
-            borderRadius: 8,
-          }}
-        >
-          Maybe later
-        </button>
       </div>
     </motion.div>
   );
@@ -454,14 +445,22 @@ function RainbowInstallButton({
         overflow: "hidden",
         isolation: "isolate", // contain mix-blend-mode to this button
         color: "#ffffff",
-        background: "#1a1a1a", // fallback if gradients fail
+        // Saturated fallback (only visible at the very edges where the
+        // rotating layer's blur falls off). Better than the old #1a1a1a
+        // because nothing here can ever read as black.
+        background:
+          "linear-gradient(115deg, #ff006e, #ffbe0b, #06ffa5, #3a86ff, #8338ec)",
         boxShadow: "0 8px 24px rgba(0, 0, 0, 0.18)",
         border: "none",
         cursor: "pointer",
       }}
     >
       {/* Rotating spectrum. inset:-80% so the rotated bounding box
-          fully covers the visible button at any angle. */}
+          fully covers the visible button at any angle. More hue stops
+          (9 vs the original 6) keep individual bands smaller than the
+          button, so at any rotation you see at least 2–3 hues across
+          the face rather than one dim band. Painted normally — no
+          blend mode — so the saturated colors land as they are. */}
       <span
         aria-hidden
         className="rainbow-spin"
@@ -469,13 +468,17 @@ function RainbowInstallButton({
           position: "absolute",
           inset: "-80%",
           background:
-            "conic-gradient(from 0deg, #ff006e, #fb5607, #ffbe0b, #06ffa5, #3a86ff, #8338ec, #ff006e)",
-          animation: "rainbow-spin 10s linear infinite",
-          filter: "saturate(1.4) blur(14px)",
+            "conic-gradient(from 0deg, #ff006e, #fb5607, #ffbe0b, #00f5d4, #06ffa5, #3a86ff, #8338ec, #ff4dbe, #ff006e)",
+          animation: "rainbow-spin 9s linear infinite",
+          // Heavy saturation + a smaller blur keeps the bands feeling like
+          // saturated paint instead of a pastel haze.
+          filter: "saturate(1.9) blur(6px)",
         }}
       />
-      {/* Drifting swirl — two offset radial blobs overlay-blended onto
-          the conic so the colour mix shifts unevenly. */}
+      {/* Drifting swirl — two soft blobs that ride on top with SCREEN
+          blending so they only ever lighten, never darken (the original
+          `overlay` mode is what produced the mostly-black look). Kept
+          low-opacity here so they're a highlight, not a wash. */}
       <span
         aria-hidden
         className="rainbow-swirl"
@@ -483,8 +486,8 @@ function RainbowInstallButton({
           position: "absolute",
           inset: "-30%",
           background:
-            "radial-gradient(circle at 30% 30%, rgba(255, 0, 255, 0.85) 0%, transparent 45%), radial-gradient(circle at 70% 70%, rgba(0, 220, 255, 0.85) 0%, transparent 45%)",
-          mixBlendMode: "overlay",
+            "radial-gradient(circle at 30% 30%, rgba(255, 90, 220, 0.35) 0%, transparent 55%), radial-gradient(circle at 70% 70%, rgba(0, 220, 255, 0.35) 0%, transparent 55%)",
+          mixBlendMode: "screen",
           animation: "rainbow-swirl 7s ease-in-out infinite",
           filter: "blur(18px)",
         }}
@@ -497,7 +500,7 @@ function RainbowInstallButton({
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.10) 100%)",
+            "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.10) 100%)",
           pointerEvents: "none",
         }}
       />
@@ -508,7 +511,7 @@ function RainbowInstallButton({
           fontSize: 17,
           fontWeight: 700,
           letterSpacing: 0.1,
-          textShadow: "0 1px 2px rgba(0, 0, 0, 0.28)",
+          textShadow: "0 1px 2px rgba(0, 0, 0, 0.32)",
         }}
       >
         {label}
@@ -523,6 +526,26 @@ function RainbowInstallButton({
  * combined with the bloom-in/wash-out blur transition reads as a
  * watercolor wash. The filter is defined once and reused.
  */
+/**
+ * Material Symbols "exit_to_app" — a tiny doorway with an arrow leaving it.
+ * Pairs with the Skip text so the affordance reads as "leave this screen,
+ * go to the app" rather than ambiguous "skip what?".
+ */
+function ExitToAppIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
+    </svg>
+  );
+}
+
 function WatercolorFilter() {
   return (
     <svg
