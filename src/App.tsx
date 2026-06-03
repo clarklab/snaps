@@ -116,7 +116,7 @@ export default function App() {
           display: "flex",
           alignItems: "center",
           gap: 12,
-          padding: "calc(var(--safe-top) + 12px) 16px 10px",
+          padding: "calc(var(--safe-top) + 16px) 16px 14px",
         }}
       >
         <h1
