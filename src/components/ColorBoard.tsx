@@ -242,7 +242,7 @@ function ColorTile({
           height: 22,
           padding: "0 8px",
           borderRadius: 999,
-          background: "rgba(0, 0, 0, 0.42)",
+          background: "rgba(0, 0, 0, 0.21)",
           color: "#fff",
           fontSize: 11.5,
           fontWeight: 700,
