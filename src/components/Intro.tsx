@@ -61,7 +61,6 @@ const FRAMES: Frame[] = [
 ];
 
 const HOLD_MS = 3200; // how long each frame stays before transitioning
-const TRANSITION_MS = 850; // crossfade duration; long enough to "bleed"
 
 export function Intro({ onDone }: { onDone: () => void }) {
   const [idx, setIdx] = useState(0);
@@ -91,6 +90,13 @@ export function Intro({ onDone }: { onDone: () => void }) {
     const img = new Image();
     img.src = next;
   }, [idx]);
+
+  // Warm up the watercolor reveal mask once so the first slide's
+  // animation isn't running against an in-flight image fetch.
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/intro/cloud-texture.png";
+  }, []);
 
   const dismiss = () => {
     safeSet(INTRO_SEEN_KEY, "1");
@@ -210,8 +216,15 @@ export function Intro({ onDone }: { onDone: () => void }) {
         >
           {/* Default mode ("sync") so old + new crossfade in parallel.
               The motion.img is absolute-positioned, so both can occupy
-              the same slot without disrupting layout. Total transition
-              time = TRANSITION_MS, not 2× — keeps each frame readable. */}
+              the same slot without disrupting layout.
+
+              Enter animation is now a watercolor mask reveal: the photo
+              emerges from the center outward through a hand-painted
+              cloud-shaped mask that scales up from ~8% to fully covering
+              the image. Combined with the SVG `wc-edge` filter we already
+              use for steady-state, the new frame literally paints itself
+              onto the page. Exit stays as a soft blur fade so two frames
+              never compete for attention. */}
           <AnimatePresence initial={false}>
             <motion.img
               key={idx}
@@ -222,9 +235,10 @@ export function Intro({ onDone }: { onDone: () => void }) {
                 reducedMotion
                   ? { opacity: 0 }
                   : {
-                      opacity: 0,
-                      scale: 1.06,
-                      filter: "blur(14px) saturate(1.4)",
+                      opacity: 1,
+                      maskSize: "8%",
+                      WebkitMaskSize: "8%",
+                      filter: "saturate(1.15)",
                     }
               }
               animate={
@@ -232,8 +246,9 @@ export function Intro({ onDone }: { onDone: () => void }) {
                   ? { opacity: 1 }
                   : {
                       opacity: 1,
-                      scale: 1,
-                      filter: "blur(0px) saturate(1) url(#wc-edge)",
+                      maskSize: "280%",
+                      WebkitMaskSize: "280%",
+                      filter: "saturate(1) url(#wc-edge)",
                     }
               }
               exit={
@@ -241,12 +256,11 @@ export function Intro({ onDone }: { onDone: () => void }) {
                   ? { opacity: 0 }
                   : {
                       opacity: 0,
-                      scale: 0.94,
-                      filter: "blur(18px) saturate(0.85)",
+                      filter: "blur(14px) saturate(0.9)",
                     }
               }
               transition={{
-                duration: TRANSITION_MS / 1000,
+                duration: reducedMotion ? 0.3 : 1.05,
                 ease: [0.32, 0.72, 0, 1],
               }}
               style={{
@@ -257,6 +271,16 @@ export function Intro({ onDone }: { onDone: () => void }) {
                 objectFit: "contain",
                 userSelect: "none",
                 WebkitUserSelect: "none",
+                // The reveal mask — a soft watercolor cloud that fades to
+                // transparent at the edges. Default mask-size of `auto`
+                // means the texture renders at its own pixel size; we
+                // override via the animated maskSize above.
+                maskImage: "url(/intro/cloud-texture.png)",
+                WebkitMaskImage: "url(/intro/cloud-texture.png)",
+                maskRepeat: "no-repeat",
+                WebkitMaskRepeat: "no-repeat",
+                maskPosition: "center",
+                WebkitMaskPosition: "center",
               }}
             />
           </AnimatePresence>
