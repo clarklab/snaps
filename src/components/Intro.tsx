@@ -40,23 +40,23 @@ interface Frame {
 const FRAMES: Frame[] = [
   {
     src: "/intro/intro-1.webp",
-    text: "You're going on a photo **color hunt!**",
+    text: "There is color all around us, waiting to be discovered.",
   },
   {
     src: "/intro/intro-2.webp",
-    text: "Boy howdy, check out this **blue door!**",
+    text: "Boy howdy, check out this blue door!",
   },
   {
     src: "/intro/intro-3.webp",
-    text: "Let's add it to my **blue bucket.**",
+    text: "Let's add it to my blue bucket.",
   },
   {
     src: "/intro/intro-4.webp",
-    text: "Oh lucky fellow! The car and sky are **yellow!**",
+    text: "Oh lucky fellow! The car and sky are yellow!",
   },
   {
     src: "/intro/intro-5.webp",
-    text: "Snaps turns **travel into color** hunt collage art.",
+    text: "Remember all the colors of your travel with Snaps.",
   },
 ];
 
