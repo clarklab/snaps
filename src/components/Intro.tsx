@@ -542,13 +542,15 @@ function RainbowBlob({
   className: string;
   color: string;
 }) {
-  // Five intentionally incommensurate durations — see index.css.
+  // Five intentionally incommensurate durations — see index.css. Doubled
+  // from the previous pacing because the user read the faster cycle as
+  // restless rather than alive.
   const durations: Record<string, string> = {
-    "rb-blob-a": "8.7s",
-    "rb-blob-b": "11.3s",
-    "rb-blob-c": "13.5s",
-    "rb-blob-d": "9.4s",
-    "rb-blob-e": "15.8s",
+    "rb-blob-a": "17.4s",
+    "rb-blob-b": "22.6s",
+    "rb-blob-c": "27s",
+    "rb-blob-d": "18.8s",
+    "rb-blob-e": "31.6s",
   };
   const keyframes: Record<string, string> = {
     "rb-blob-a": "rb-drift-a",
@@ -564,16 +566,15 @@ function RainbowBlob({
       style={{
         position: "absolute",
         inset: "-30%",
-        // Tighter falloff (transparent at 48% not 58%) keeps the blob
-        // edge from going chalky. Heavier blur is the wash; the radial
-        // is the shape.
-        background: `radial-gradient(circle, ${color} 0%, transparent 48%)`,
-        filter: "blur(20px) saturate(1.6)",
-        // `plus-lighter` (a.k.a. additive blending, clamped to 1.0) keeps
-        // saturated hues vivid where blobs overlap instead of bleaching
-        // them toward white the way `screen` does after a few layers.
-        mixBlendMode: "plus-lighter",
-        opacity: 0.85,
+        background: `radial-gradient(circle, ${color} 0%, transparent 50%)`,
+        filter: "blur(24px) saturate(1.25)",
+        // Plain normal blend at moderate opacity: each blob paints over
+        // what's beneath at ~60/40, so the visible colour is always a
+        // weighted mix of the underlying hues — never additive into
+        // white. The text in the centre stays readable regardless of
+        // which blobs happen to converge there.
+        mixBlendMode: "normal",
+        opacity: 0.6,
         pointerEvents: "none",
         animation: `${keyframes[className]} ${durations[className]} ease-in-out infinite`,
       }}
