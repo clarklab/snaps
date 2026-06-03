@@ -56,7 +56,7 @@ const FRAMES: Frame[] = [
   },
   {
     src: "/intro/intro-5.webp",
-    text: "Remember all the colors of your travel with Snaps.",
+    text: "Remember all the colors of your travel.",
   },
 ];
 
