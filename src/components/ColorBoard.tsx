@@ -63,7 +63,7 @@ export function ColorBoard({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 14,
+          gap: 10,
         }}
       >
         {COLORS.map((color) => (
@@ -187,88 +187,92 @@ function ColorTile({
   const complete = fill === SLOTS_PER_BOARD;
 
   return (
-    <div>
-      <motion.button
-        layoutId={supportsVT ? undefined : `hero-${color.id}`}
-        onClick={() => {
-          haptic("select");
-          onSelect(color.id);
-        }}
-        whileTap={{ scale: 0.97 }}
-        whileHover={{ y: -2 }}
-        transition={{ type: "spring", stiffness: 380, damping: 28 }}
-        aria-label={`${color.name}, ${fill} of ${SLOTS_PER_BOARD} photos`}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 3,
-          width: "100%",
-          aspectRatio: "1 / 1",
-          borderRadius: 20,
-          overflow: "hidden",
-          background: hex,
-          boxShadow: color.needsBorder
-            ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
-            : "var(--tile-shadow)",
-          viewTransitionName: supportsVT ? `hero-${color.id}` : undefined,
-        }}
-      >
-        {Array.from({ length: SLOTS_PER_BOARD }).map((_, i) => {
-          const photoId = slots[i];
-          return (
-            <div
-              key={i}
-              style={{
-                aspectRatio: "1 / 1",
-                overflow: "hidden",
-                background: hex,
-              }}
-            >
-              {photoId && <Thumbnail photoId={photoId} alt="" tint={hex} />}
-            </div>
-          );
-        })}
-      </motion.button>
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          margin: "7px 3px 0",
-        }}
-      >
-        <span style={{ fontSize: 15, fontWeight: 600 }}>{color.name}</span>
-        {complete ? (
-          <CheckIcon />
-        ) : (
-          <span
+    <motion.button
+      layoutId={supportsVT ? undefined : `hero-${color.id}`}
+      onClick={() => {
+        haptic("select");
+        onSelect(color.id);
+      }}
+      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 380, damping: 28 }}
+      aria-label={`${color.name}, ${fill} of ${SLOTS_PER_BOARD} photos`}
+      style={{
+        position: "relative",
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 3,
+        width: "100%",
+        aspectRatio: "1 / 1",
+        borderRadius: 20,
+        overflow: "hidden",
+        background: hex,
+        boxShadow: color.needsBorder
+          ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
+          : "var(--tile-shadow)",
+        viewTransitionName: supportsVT ? `hero-${color.id}` : undefined,
+      }}
+    >
+      {Array.from({ length: SLOTS_PER_BOARD }).map((_, i) => {
+        const photoId = slots[i];
+        return (
+          <div
+            key={i}
             style={{
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: "var(--label-tertiary)",
-              fontVariantNumeric: "tabular-nums",
+              aspectRatio: "1 / 1",
+              overflow: "hidden",
+              background: hex,
             }}
           >
-            {fill}/{SLOTS_PER_BOARD}
-          </span>
-        )}
-      </div>
-    </div>
+            {photoId && <Thumbnail photoId={photoId} alt="" tint={hex} />}
+          </div>
+        );
+      })}
+
+      {/* Inset count pill in the bottom-right corner of the tile.
+          Translucent dark fill + blur reads on every swatch (light,
+          dark, mid) without per-colour tuning. */}
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          right: 8,
+          bottom: 8,
+          minWidth: 28,
+          height: 22,
+          padding: "0 8px",
+          borderRadius: 999,
+          background: "rgba(0, 0, 0, 0.42)",
+          color: "#fff",
+          fontSize: 11.5,
+          fontWeight: 700,
+          letterSpacing: 0.1,
+          fontVariantNumeric: "tabular-nums",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+        }}
+      >
+        {complete ? <PillCheck /> : `${fill}/${SLOTS_PER_BOARD}`}
+      </span>
+    </motion.button>
   );
 }
 
-function CheckIcon() {
+function PillCheck() {
   return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <circle cx="10" cy="10" r="10" fill="var(--accent)" />
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden>
       <path
-        d="M5.5 10.5l3 3 6-6.5"
-        stroke="#fff"
-        strokeWidth="2.2"
+        d="M4.5 10.5l3.2 3.2L15.5 6"
+        stroke="currentColor"
+        strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
   );
 }
+
