@@ -27,11 +27,9 @@ export function SampleCard({
     <Sheet open={open} onClose={onDismiss}>
       <div
         style={{
-          padding: "4px 20px calc(var(--safe-bottom) + 18px)",
+          padding: "24px 20px calc(var(--safe-bottom) + 18px)",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center",
         }}
       >
         <ColorDotsBlock scheme={scheme} />
@@ -51,7 +49,6 @@ export function SampleCard({
             fontSize: 14.5,
             lineHeight: 1.45,
             color: "var(--label-secondary)",
-            maxWidth: 380,
           }}
         >
           Fill your grid with color matched photos: a blue door, a blue mug, a
@@ -134,7 +131,9 @@ function ColorDotsBlock({ scheme }: { scheme: Scheme }) {
             style={{
               width: dot,
               height: dot,
-              borderRadius: 999,
+              // Rounded-rect look, not pill — echoes the home-grid color
+              // tiles where corners are softened but still rectangular.
+              borderRadius: 6,
               background: fill,
               boxShadow:
                 c.needsBorder && c.id !== "white"
