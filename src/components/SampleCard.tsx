@@ -140,8 +140,8 @@ export function SampleCard({
  * to light gray in light mode so it doesn't vanish into the card bg.
  */
 function ColorDotsBlock({ scheme }: { scheme: Scheme }) {
-  const dot = 18; // 3 dots × 18 + 2 gaps × 9 = 72px square block
-  const gap = 9;
+  const dot = 20; // 3 dots × 20 + 2 gaps × 5 = 70px square block
+  const gap = 5;
   return (
     <div
       aria-hidden
