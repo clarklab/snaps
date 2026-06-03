@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { COLORS, swatch } from "../colors";
+import { COLORS, swatch, type Scheme } from "../colors";
 import { useTheme } from "../state/theme";
 
 /**
@@ -75,30 +75,10 @@ export function SampleCard({
         </svg>
       </button>
 
-      {/* A little ring of color dots echoing the app icon. */}
-      <div
-        aria-hidden
-        style={{
-          display: "flex",
-          gap: 5,
-          marginBottom: 12,
-        }}
-      >
-        {COLORS.map((c) => (
-          <span
-            key={c.id}
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 999,
-              background: swatch(c, scheme),
-              boxShadow: c.needsBorder
-                ? "inset 0 0 0 1px var(--hairline)"
-                : "none",
-            }}
-          />
-        ))}
-      </div>
+      {/* 3x3 of color dots — the same shorthand used in the header
+          progress chip, blown up so it reads as a little app icon. */}
+      <ColorDotsBlock scheme={scheme} />
+      <div style={{ height: 14 }} />
 
       <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 700 }}>
         How Snaps works
@@ -151,5 +131,48 @@ export function SampleCard({
         </button>
       </div>
     </motion.div>
+  );
+}
+
+/**
+ * A 3×3 of color dots, sized to read as a little app-icon block (~72px
+ * across). Mirrors the shorthand the header uses; the white tile swaps
+ * to light gray in light mode so it doesn't vanish into the card bg.
+ */
+function ColorDotsBlock({ scheme }: { scheme: Scheme }) {
+  const dot = 18; // 3 dots × 18 + 2 gaps × 9 = 72px square block
+  const gap = 9;
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(3, ${dot}px)`,
+        gridAutoRows: `${dot}px`,
+        gap,
+      }}
+    >
+      {COLORS.map((c) => {
+        const fill =
+          c.id === "white" && scheme === "light"
+            ? "rgba(60, 60, 67, 0.18)"
+            : swatch(c, scheme);
+        return (
+          <span
+            key={c.id}
+            style={{
+              width: dot,
+              height: dot,
+              borderRadius: 999,
+              background: fill,
+              boxShadow:
+                c.needsBorder && c.id !== "white"
+                  ? "inset 0 0 0 1px var(--hairline)"
+                  : "none",
+            }}
+          />
+        );
+      })}
+    </div>
   );
 }
