@@ -388,6 +388,13 @@ function AnimatedCaption({
         letterSpacing: 0,
         color: "#1c1c1e",
         maxWidth: 380,
+        // `text-wrap: balance` distributes inline content evenly across
+        // all lines — practically that means the last line never ends
+        // up with a single orphaned word, which the storybook captions
+        // were occasionally producing (e.g. "yellow!" or "discovered."
+        // alone). `pretty` would also work but balance is more widely
+        // supported and produces a nicer rag on a 2-3 line caption.
+        textWrap: "balance",
       }}
     >
       {words.map((w, i) => (
