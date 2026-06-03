@@ -138,41 +138,88 @@ img {
 }
 
 /* ---- Animated rainbow button used on the intro CTA ----
-   Two independently-moving layers (a slow rotating conic-gradient and
-   a faster swirling radial blob) blended together produce a rich,
-   liquid colour shift that doesn't look like a single rotating disc. */
-@keyframes rainbow-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes rainbow-swirl {
-  0% {
-    transform: translate(-12%, -8%) scale(1);
+   Five oversized radial-gradient blobs each drift on their own timing.
+   The periods are pairwise-incommensurate (8.7s, 11.3s, 13.5s, 9.4s,
+   15.8s — primes / near-primes apart) so the configuration never quite
+   repeats; the eye reads "always alive, never on a loop". Each blob is
+   inset:-40% with a heavy blur and `mix-blend-mode: screen`, so the
+   overlap brightens rather than darkens and a single rotating arm never
+   appears the way a conic-gradient produced. */
+@keyframes rb-drift-a {
+  0%,
+  100% {
+    transform: translate(-15%, -10%) scale(1);
   }
   25% {
-    transform: translate(15%, -12%) scale(1.2);
+    transform: translate(22%, 15%) scale(1.12);
   }
   50% {
-    transform: translate(12%, 14%) scale(0.95);
+    transform: translate(-5%, 26%) scale(0.95);
   }
   75% {
-    transform: translate(-14%, 10%) scale(1.15);
-  }
-  100% {
-    transform: translate(-12%, -8%) scale(1);
+    transform: translate(26%, -22%) scale(1.08);
   }
 }
-@keyframes rainbow-hue {
-  to {
-    filter: blur(18px) saturate(1.6) hue-rotate(360deg);
+@keyframes rb-drift-b {
+  0%,
+  100% {
+    transform: translate(22%, 20%) scale(1.05);
+  }
+  30% {
+    transform: translate(-26%, -10%) scale(0.95);
+  }
+  60% {
+    transform: translate(15%, -26%) scale(1.15);
+  }
+  85% {
+    transform: translate(-20%, 30%) scale(1);
+  }
+}
+@keyframes rb-drift-c {
+  0%,
+  100% {
+    transform: translate(-26%, 26%) scale(1.1);
+  }
+  20% {
+    transform: translate(22%, -6%) scale(0.92);
+  }
+  55% {
+    transform: translate(-15%, -26%) scale(1.18);
+  }
+  80% {
+    transform: translate(26%, 20%) scale(1);
+  }
+}
+@keyframes rb-drift-d {
+  0%,
+  100% {
+    transform: translate(26%, -26%) scale(0.95);
+  }
+  35% {
+    transform: translate(-22%, 22%) scale(1.15);
+  }
+  65% {
+    transform: translate(15%, 26%) scale(1.05);
+  }
+}
+@keyframes rb-drift-e {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  20% {
+    transform: translate(26%, 26%) scale(1.12);
+  }
+  45% {
+    transform: translate(-26%, -10%) scale(0.95);
+  }
+  70% {
+    transform: translate(12%, -26%) scale(1.08);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rainbow-spin,
-  .rainbow-swirl,
-  .rainbow-hue {
+  .rb-blob {
     animation: none !important;
   }
 }
