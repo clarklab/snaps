@@ -1,4 +1,4 @@
-import { AnimatePresence, LayoutGroup } from "framer-motion";
+import { LayoutGroup } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { colorById } from "./colors";
 import { ColorBoard } from "./components/ColorBoard";
@@ -189,16 +189,14 @@ export default function App() {
         }}
       />
 
-      {/* First-run nudge to play the guided tour. */}
-      <AnimatePresence>
-        {showSampleCard && (
-          <SampleCard
-            key="sample-card"
-            onStart={startTour}
-            onDismiss={markTourSeen}
-          />
-        )}
-      </AnimatePresence>
+      {/* First-run nudge to play the guided tour, presented as a native
+          bottom sheet. SampleCard wraps Sheet internally and stays
+          mounted — visibility is driven by the `open` prop. */}
+      <SampleCard
+        open={showSampleCard}
+        onStart={startTour}
+        onDismiss={markTourSeen}
+      />
 
       {/* While the tour plays, a transparent layer captures taps so the
           choreography isn't fought by stray touches; tapping it skips.

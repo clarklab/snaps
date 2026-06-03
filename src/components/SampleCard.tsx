@@ -1,149 +1,114 @@
 import { motion } from "framer-motion";
 import { COLORS, swatch, type Scheme } from "../colors";
 import { useTheme } from "../state/theme";
+import { Sheet } from "./Sheet";
 
 /**
- * First-run nudge: a dismissible card that animates up from the bottom of
- * the home screen, offering the guided tour (which loads sample photos and
- * walks through the whole app). Replaces the old inline "load a sample set"
- * link so the welcome reads as a clean grid with one friendly invitation.
+ * First-run nudge surfaced as a bottom sheet — same chrome the rest of
+ * the app uses for Settings and Share, so dismiss reads as native
+ * (drag-down, tap-scrim, system spring close). The previous floating
+ * card had its own drag handling and could be missed on tall screens;
+ * a proper sheet anchors the welcome flow to the gesture vocabulary
+ * users already know.
  *
- * It's deliberately non-modal — no scrim — so it sits over the grid as a
- * gentle suggestion the user can swipe away or ignore and start tapping
- * colors. Visibility + persistence are owned by the parent.
+ * Visibility + persistence are owned by the parent via `open`.
  */
 export function SampleCard({
+  open,
   onStart,
   onDismiss,
 }: {
+  open: boolean;
   onStart: () => void;
   onDismiss: () => void;
 }) {
   const { scheme } = useTheme();
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 60 }}
-      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      drag="y"
-      dragConstraints={{ top: 0, bottom: 0 }}
-      dragElastic={{ top: 0, bottom: 0.5 }}
-      onDragEnd={(_, info) => {
-        if (info.offset.y > 80 || info.velocity.y > 500) onDismiss();
-      }}
-      style={{
-        position: "fixed",
-        left: 12,
-        right: 12,
-        bottom: "calc(var(--safe-bottom) + 12px)",
-        maxWidth: 520,
-        margin: "0 auto",
-        zIndex: 40,
-        background: "var(--bg-elevated)",
-        borderRadius: 22,
-        padding: "18px 18px 16px",
-        boxShadow: "0 12px 44px rgba(0,0,0,0.22)",
-        border: "1px solid var(--separator)",
-      }}
-    >
-      {/* Dismiss */}
-      <button
-        onClick={onDismiss}
-        aria-label="Dismiss"
-        style={{
-          position: "absolute",
-          top: 12,
-          right: 12,
-          width: 30,
-          height: 30,
-          borderRadius: 999,
-          background: "var(--fill-quaternary)",
-          color: "var(--label-secondary)",
-          display: "grid",
-          placeItems: "center",
-        }}
-      >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <path
-            d="M3 3l10 10M13 3L3 13"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-
-      {/* 3x3 of color dots — the same shorthand used in the header
-          progress chip, blown up so it reads as a little app icon. */}
-      <ColorDotsBlock scheme={scheme} />
-      <div style={{ height: 14 }} />
-
-      <h2 style={{ margin: "0 0 4px", fontSize: 19, fontWeight: 700 }}>
-        How Snaps works
-      </h2>
-      <p
-        style={{
-          margin: "0 0 14px",
-          fontSize: 14,
-          lineHeight: 1.45,
-          color: "var(--label-secondary)",
-        }}
-      >
-        Fill your grid with color matched photos: a blue door, a blue mug, a
-        blue sky. Share your collage when complete. Enjoy your travels!
-      </p>
-
+    <Sheet open={open} onClose={onDismiss}>
       <div
         style={{
+          padding: "4px 20px calc(var(--safe-bottom) + 18px)",
           display: "flex",
           flexDirection: "column",
-          gap: 8,
+          alignItems: "center",
+          textAlign: "center",
         }}
       >
-        {/* Secondary first: the tour is a nice-to-have, so it sits above
-            but rendered as a quieter neutral button rather than a text
-            link — gives both options the same target size. */}
-        <motion.button
-          onClick={onStart}
-          whileTap={{ scale: 0.97 }}
+        <ColorDotsBlock scheme={scheme} />
+        <h2
           style={{
-            width: "100%",
-            padding: "12px 16px",
-            borderRadius: 14,
-            background: "var(--fill-quaternary)",
-            color: "var(--label)",
-            fontSize: 15.5,
-            fontWeight: 600,
-          }}
-        >
-          Watch a Tour
-        </motion.button>
-        <motion.button
-          onClick={onDismiss}
-          whileTap={{ scale: 0.97 }}
-          style={{
-            width: "100%",
-            padding: "13px 16px",
-            borderRadius: 14,
-            background: "var(--accent)",
-            color: "#fff",
-            fontSize: 16,
+            margin: "16px 0 6px",
+            fontSize: 22,
             fontWeight: 700,
+            letterSpacing: -0.2,
           }}
         >
-          Just Get Started
-        </motion.button>
+          How Snaps works
+        </h2>
+        <p
+          style={{
+            margin: "0 0 18px",
+            fontSize: 14.5,
+            lineHeight: 1.45,
+            color: "var(--label-secondary)",
+            maxWidth: 380,
+          }}
+        >
+          Fill your grid with color matched photos: a blue door, a blue mug, a
+          blue sky. Share your collage when complete. Enjoy your travels!
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            width: "100%",
+          }}
+        >
+          {/* Secondary first: the tour is a nice-to-have, so it sits
+              above but rendered as a quieter neutral button rather
+              than a text link — equal target size for both actions. */}
+          <motion.button
+            onClick={onStart}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              width: "100%",
+              padding: "13px 16px",
+              borderRadius: 14,
+              background: "var(--fill-quaternary)",
+              color: "var(--label)",
+              fontSize: 15.5,
+              fontWeight: 600,
+            }}
+          >
+            Watch a Tour
+          </motion.button>
+          <motion.button
+            onClick={onDismiss}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              borderRadius: 14,
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 16,
+              fontWeight: 700,
+            }}
+          >
+            Just Get Started
+          </motion.button>
+        </div>
       </div>
-    </motion.div>
+    </Sheet>
   );
 }
 
 /**
- * A 3×3 of color dots, sized to read as a little app-icon block (~72px
+ * A 3×3 of color dots, sized to read as a little app-icon block (~70px
  * across). Mirrors the shorthand the header uses; the white tile swaps
- * to light gray in light mode so it doesn't vanish into the card bg.
+ * to light gray in light mode so it doesn't vanish into the sheet bg.
  */
 function ColorDotsBlock({ scheme }: { scheme: Scheme }) {
   const dot = 20; // 3 dots × 20 + 2 gaps × 5 = 70px square block
