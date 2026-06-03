@@ -170,6 +170,26 @@ function ShareIcon() {
  * filled slots show the photo, so the home screen fills in as you collect.
  * The colored square is the shared element that morphs into the detail hero.
  */
+/**
+ * Per-tile pill theming. For chromatic tiles the pill background is a
+ * deeper analogous shade of the swatch and the text is a cream/pastel
+ * from the same family — keeps every chip visually in-key with the
+ * colour behind it instead of reading as a black sticker on top. The
+ * two neutrals invert: black tile gets a light pill, white tile gets a
+ * dark one (color theory takes a back seat to readability there).
+ */
+const PILL_THEME: Record<string, { bg: string; text: string }> = {
+  red: { bg: "rgba(96, 14, 28, 0.55)", text: "#ffe2d6" },
+  orange: { bg: "rgba(96, 42, 0, 0.55)", text: "#ffe7c2" },
+  yellow: { bg: "rgba(96, 64, 0, 0.55)", text: "#fff7c4" },
+  green: { bg: "rgba(14, 58, 28, 0.55)", text: "#d6f5dc" },
+  blue: { bg: "rgba(8, 28, 78, 0.55)", text: "#dae8ff" },
+  purple: { bg: "rgba(46, 14, 74, 0.55)", text: "#eedaff" },
+  pink: { bg: "rgba(96, 32, 38, 0.5)", text: "#fde4e3" },
+  black: { bg: "rgba(240, 240, 245, 0.22)", text: "#f4f4f6" },
+  white: { bg: "rgba(20, 20, 22, 0.72)", text: "#ffffff" },
+};
+
 function ColorTile({
   color,
   onSelect,
@@ -185,6 +205,7 @@ function ColorTile({
   const slots = store.boards[color.id] ?? Array(SLOTS_PER_BOARD).fill(null);
   const fill = store.filledCount(color.id);
   const complete = fill === SLOTS_PER_BOARD;
+  const pill = PILL_THEME[color.id] ?? PILL_THEME.black;
 
   return (
     <motion.button
@@ -230,8 +251,9 @@ function ColorTile({
       })}
 
       {/* Inset count pill in the bottom-right corner of the tile.
-          Translucent dark fill + blur reads on every swatch (light,
-          dark, mid) without per-colour tuning. */}
+          `pill.bg` is a darker analogous shade of the swatch (for
+          chromatic tiles) so the chip reads as same-family rather than
+          stuck-on; `pill.text` is a matching cream/pastel ink. */}
       <span
         aria-hidden
         style={{
@@ -242,8 +264,8 @@ function ColorTile({
           height: 22,
           padding: "0 8px",
           borderRadius: 999,
-          background: "rgba(0, 0, 0, 0.21)",
-          color: "#fff",
+          background: pill.bg,
+          color: pill.text,
           fontSize: 11.5,
           fontWeight: 700,
           letterSpacing: 0.1,
