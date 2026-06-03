@@ -260,7 +260,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
                     }
               }
               transition={{
-                duration: reducedMotion ? 0.3 : 1.05,
+                duration: reducedMotion ? 0.3 : 2.1,
                 ease: [0.32, 0.72, 0, 1],
               }}
               style={{
@@ -286,13 +286,16 @@ export function Intro({ onDone }: { onDone: () => void }) {
           </AnimatePresence>
         </div>
 
-        {/* Caption that crossfades with the frame.
-            mode="wait" runs exit→enter sequentially so two captions never
-            stack on top of each other; the image crossfade above keeps
-            the frame visually present during that brief gap. */}
+        {/* Caption — fixed-height container precalculated for the longest
+            three-line frame at 28px × 1.26 line-height. Locking the
+            height here means the install CTA below never reflows when
+            frames swap, so the layout is rock-steady throughout the
+            loop. mode="wait" still runs exit→enter sequentially so two
+            captions never stack while the image crossfade keeps the
+            frame visually present during the brief gap. */}
         <div
           style={{
-            minHeight: 56,
+            height: 116,
             width: "100%",
             display: "flex",
             alignItems: "center",
@@ -380,7 +383,7 @@ function AnimatedCaption({
           '"Averia Serif Libre", "Iowan Old Style", "Georgia", serif',
         fontStyle: "italic",
         fontWeight: 400,
-        fontSize: 31,
+        fontSize: 28,
         lineHeight: 1.26,
         letterSpacing: 0,
         color: "#1c1c1e",
