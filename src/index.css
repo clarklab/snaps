@@ -145,61 +145,65 @@ img {
    inset:-40% with a heavy blur and `mix-blend-mode: screen`, so the
    overlap brightens rather than darkens and a single rotating arm never
    appears the way a conic-gradient produced. */
+/* Wider drift amplitudes (was ~22-26%, now 38-44%) so each blob covers
+   more ground over a cycle — the eye reads more movement even though
+   the timings haven't sped up. Scale range widened too, so blobs pulse
+   in and out as they drift. */
 @keyframes rb-drift-a {
   0%,
   100% {
-    transform: translate(-15%, -10%) scale(1);
+    transform: translate(-26%, -18%) scale(1);
   }
   25% {
-    transform: translate(22%, 15%) scale(1.12);
+    transform: translate(38%, 22%) scale(1.22);
   }
   50% {
-    transform: translate(-5%, 26%) scale(0.95);
+    transform: translate(-12%, 40%) scale(0.85);
   }
   75% {
-    transform: translate(26%, -22%) scale(1.08);
+    transform: translate(42%, -32%) scale(1.15);
   }
 }
 @keyframes rb-drift-b {
   0%,
   100% {
-    transform: translate(22%, 20%) scale(1.05);
+    transform: translate(34%, 30%) scale(1.1);
   }
   30% {
-    transform: translate(-26%, -10%) scale(0.95);
+    transform: translate(-40%, -16%) scale(0.9);
   }
   60% {
-    transform: translate(15%, -26%) scale(1.15);
+    transform: translate(22%, -40%) scale(1.25);
   }
   85% {
-    transform: translate(-20%, 30%) scale(1);
+    transform: translate(-32%, 42%) scale(1);
   }
 }
 @keyframes rb-drift-c {
   0%,
   100% {
-    transform: translate(-26%, 26%) scale(1.1);
+    transform: translate(-40%, 38%) scale(1.18);
   }
   20% {
-    transform: translate(22%, -6%) scale(0.92);
+    transform: translate(34%, -12%) scale(0.88);
   }
   55% {
-    transform: translate(-15%, -26%) scale(1.18);
+    transform: translate(-22%, -38%) scale(1.28);
   }
   80% {
-    transform: translate(26%, 20%) scale(1);
+    transform: translate(40%, 30%) scale(1);
   }
 }
 @keyframes rb-drift-d {
   0%,
   100% {
-    transform: translate(26%, -26%) scale(0.95);
+    transform: translate(40%, -38%) scale(0.9);
   }
   35% {
-    transform: translate(-22%, 22%) scale(1.15);
+    transform: translate(-34%, 34%) scale(1.25);
   }
   65% {
-    transform: translate(15%, 26%) scale(1.05);
+    transform: translate(22%, 40%) scale(1.1);
   }
 }
 @keyframes rb-drift-e {
@@ -208,13 +212,13 @@ img {
     transform: translate(0%, 0%) scale(1);
   }
   20% {
-    transform: translate(26%, 26%) scale(1.12);
+    transform: translate(40%, 38%) scale(1.22);
   }
   45% {
-    transform: translate(-26%, -10%) scale(0.95);
+    transform: translate(-40%, -16%) scale(0.88);
   }
   70% {
-    transform: translate(12%, -26%) scale(1.08);
+    transform: translate(20%, -40%) scale(1.18);
   }
 }
 

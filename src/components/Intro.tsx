@@ -495,11 +495,11 @@ function RainbowInstallButton({
           Each blob is inset:-40% with a heavy blur, so its bounding box
           extends past the button in all directions and there's never a
           hard edge in the visible area. */}
-      <RainbowBlob className="rb-blob-a" color="rgba(255, 0, 122, 1)" />
-      <RainbowBlob className="rb-blob-b" color="rgba(255, 170, 0, 1)" />
-      <RainbowBlob className="rb-blob-c" color="rgba(0, 220, 200, 1)" />
-      <RainbowBlob className="rb-blob-d" color="rgba(50, 90, 255, 1)" />
-      <RainbowBlob className="rb-blob-e" color="rgba(200, 50, 255, 1)" />
+      <RainbowBlob className="rb-blob-a" color="rgba(255, 20, 140, 1)" />
+      <RainbowBlob className="rb-blob-b" color="rgba(255, 220, 0, 1)" />
+      <RainbowBlob className="rb-blob-c" color="rgba(0, 255, 200, 1)" />
+      <RainbowBlob className="rb-blob-d" color="rgba(80, 70, 255, 1)" />
+      <RainbowBlob className="rb-blob-e" color="rgba(220, 40, 255, 1)" />
 
       {/* Subtle top sheen so the button reads as a domed surface
           rather than a flat hue. */}
@@ -542,15 +542,13 @@ function RainbowBlob({
   className: string;
   color: string;
 }) {
-  // Five intentionally incommensurate durations — see index.css. Doubled
-  // from the previous pacing because the user read the faster cycle as
-  // restless rather than alive.
+  // Five intentionally incommensurate durations — see index.css.
   const durations: Record<string, string> = {
-    "rb-blob-a": "17.4s",
-    "rb-blob-b": "22.6s",
-    "rb-blob-c": "27s",
-    "rb-blob-d": "18.8s",
-    "rb-blob-e": "31.6s",
+    "rb-blob-a": "12.4s",
+    "rb-blob-b": "16.6s",
+    "rb-blob-c": "19s",
+    "rb-blob-d": "14.8s",
+    "rb-blob-e": "23.6s",
   };
   const keyframes: Record<string, string> = {
     "rb-blob-a": "rb-drift-a",
@@ -566,15 +564,19 @@ function RainbowBlob({
       style={{
         position: "absolute",
         inset: "-30%",
-        background: `radial-gradient(circle, ${color} 0%, transparent 50%)`,
-        filter: "blur(24px) saturate(1.25)",
-        // Plain normal blend at moderate opacity: each blob paints over
-        // what's beneath at ~60/40, so the visible colour is always a
-        // weighted mix of the underlying hues — never additive into
-        // white. The text in the centre stays readable regardless of
-        // which blobs happen to converge there.
+        // Tighter radial (transparent at 38%) so each blob reads as a
+        // distinct neon splotch instead of a wide haze. Heavy
+        // saturate(1.6) pushes the already-bright source colours into
+        // proper neon territory.
+        background: `radial-gradient(circle, ${color} 0%, transparent 38%)`,
+        filter: "blur(22px) saturate(1.6)",
+        // Plain normal blend at 0.82 opacity — the top blob dominates
+        // wherever it sits, so its neon colour shows through cleanly
+        // rather than averaging with siblings into a muddy wash. Where
+        // a blob's radial edge fades out, the next blob below shows
+        // through, so the full surface stays multicoloured.
         mixBlendMode: "normal",
-        opacity: 0.6,
+        opacity: 0.82,
         pointerEvents: "none",
         animation: `${keyframes[className]} ${durations[className]} ease-in-out infinite`,
       }}
