@@ -99,10 +99,27 @@ export function SampleCard({
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          gap: 6,
+          gap: 8,
         }}
       >
+        {/* Secondary first: the tour is a nice-to-have, so it sits above
+            but rendered as a quieter neutral button rather than a text
+            link — gives both options the same target size. */}
+        <motion.button
+          onClick={onStart}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: 14,
+            background: "var(--fill-quaternary)",
+            color: "var(--label)",
+            fontSize: 15.5,
+            fontWeight: 600,
+          }}
+        >
+          Watch a Tour
+        </motion.button>
         <motion.button
           onClick={onDismiss}
           whileTap={{ scale: 0.97 }}
@@ -116,19 +133,8 @@ export function SampleCard({
             fontWeight: 700,
           }}
         >
-          Get Started
+          Just Get Started
         </motion.button>
-        <button
-          onClick={onStart}
-          style={{
-            padding: "8px 10px",
-            fontSize: 13.5,
-            fontWeight: 500,
-            color: "var(--label-secondary)",
-          }}
-        >
-          or watch a tour
-        </button>
       </div>
     </motion.div>
   );
