@@ -111,18 +111,23 @@ export function SampleCard({
           color: "var(--label-secondary)",
         }}
       >
-        Pick a color, then fill its grid with nine photos of things in that
-        color — a blue door, a blue mug, a blue sky. Want to see it first? Tap
-        below and we'll load some samples and show you around in about ten
-        seconds.
+        Fill your grid with color matched photos: a blue door, a blue mug, a
+        blue sky. Share your collage when complete. Enjoy your travels!
       </p>
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
         <motion.button
-          onClick={onStart}
+          onClick={onDismiss}
           whileTap={{ scale: 0.97 }}
           style={{
-            flex: 1,
+            width: "100%",
             padding: "13px 16px",
             borderRadius: 14,
             background: "var(--accent)",
@@ -131,18 +136,18 @@ export function SampleCard({
             fontWeight: 700,
           }}
         >
-          Play the tour
+          Get Started
         </motion.button>
         <button
-          onClick={onDismiss}
+          onClick={onStart}
           style={{
-            padding: "13px 12px",
-            fontSize: 15,
-            fontWeight: 600,
+            padding: "8px 10px",
+            fontSize: 13.5,
+            fontWeight: 500,
             color: "var(--label-secondary)",
           }}
         >
-          Not now
+          or watch a tour
         </button>
       </div>
     </motion.div>
