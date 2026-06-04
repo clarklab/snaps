@@ -11,6 +11,7 @@ import { useToast } from "./components/Toast";
 import { useNetworkStatus } from "./lib/useNetworkStatus";
 import type { SwUpdateDetail } from "./lib/registerSW";
 import { safeGet, safeSet } from "./lib/safeStorage";
+import { detectStandalone } from "./lib/useInstallPrompt";
 import { startTransition } from "./lib/viewTransitions";
 import { TOUR_SEEN_KEY, useDemo } from "./state/demo";
 import { useStore } from "./state/store";
@@ -21,7 +22,16 @@ export default function App() {
   // Intro state is initialized synchronously from localStorage so there's
   // no flicker on first paint: returning users render the home grid
   // immediately, first-time users render the intro immediately.
-  const [introOpen, setIntroOpen] = useState(() => !introWasSeen());
+  //
+  // Running standalone means the user has already added Snaps to their home
+  // screen — the intro's whole job is to pitch that install, so once it's
+  // done there's nothing left to show. We skip it outright (not just on the
+  // launch where they installed): on iOS the installed PWA gets its own
+  // localStorage separate from Safari, so introWasSeen() reads false on
+  // first standalone launch and the intro would otherwise reappear forever.
+  const [introOpen, setIntroOpen] = useState(
+    () => !introWasSeen() && !detectStandalone(),
+  );
   // Bumped each time the user replays the intro; keyed onto the Intro
   // component to force a fresh mount so the frame counter starts back at 0
   // rather than wherever the previous mount left it.
