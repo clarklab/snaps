@@ -6,19 +6,59 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Snaps</title>
+
+    <!-- Primary identity -->
+    <title>Snaps — A color hunt for your travels</title>
     <meta
       name="description"
-      content="Collect nine photos of nine colors. A local-first color photo game for iOS and Android."
+      content="A pocket-size color hunt. Collect nine photos of nine colors, then share the rainbow you found. Local-first, works offline, no account needed."
     />
+    <meta name="author" content="Snaps" />
+    <link rel="canonical" href="https://snaps.quest/" />
+    <meta name="robots" content="index, follow" />
 
     <!-- iOS standalone / native feel -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
     <meta name="apple-mobile-web-app-title" content="Snaps" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/icons/favicon-64.png" />
+
+    <!-- Open Graph (Facebook, LinkedIn, iMessage, Slack, Discord) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Snaps" />
+    <meta property="og:url" content="https://snaps.quest/" />
+    <meta property="og:title" content="Snaps — A color hunt for your travels" />
+    <meta
+      property="og:description"
+      content="A pocket-size color hunt. Collect nine photos of nine colors, then share the rainbow you found."
+    />
+    <meta property="og:image" content="https://snaps.quest/unfurl.webp" />
+    <meta property="og:image:type" content="image/webp" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
+    <meta
+      property="og:image:alt"
+      content="A watercolor of a boy photographing a red cardinal, snapshot cards drifting between him and a 3×3 collage of nine colorful photos."
+    />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Snaps — A color hunt for your travels" />
+    <meta
+      name="twitter:description"
+      content="A pocket-size color hunt. Collect nine photos of nine colors, then share the rainbow you found."
+    />
+    <meta name="twitter:image" content="https://snaps.quest/unfurl.webp" />
+    <meta
+      name="twitter:image:alt"
+      content="A watercolor of a boy photographing a red cardinal, snapshot cards drifting between him and a 3×3 collage of nine colorful photos."
+    />
 
     <!-- Preload the regular weight so first text paint isn't blocked by
          the font fetch. The other weights load lazily via @font-face. -->
@@ -33,6 +73,32 @@
     <!-- theme-color flips with the active scheme; JS keeps it in sync too -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0c0e" />
+
+    <!-- Structured data: a self-contained WebApplication entry so search
+         engines and social previews understand what kind of thing this is
+         (free, browser-based, installable, photo / lifestyle). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Snaps",
+        "alternateName": "Snaps Quest",
+        "url": "https://snaps.quest/",
+        "description": "A pocket-size color hunt. Collect nine photos of nine colors, then share the rainbow you found.",
+        "image": "https://snaps.quest/unfurl.webp",
+        "applicationCategory": "Photo",
+        "applicationSubCategory": "LifestyleApplication",
+        "operatingSystem": "Any (Progressive Web App)",
+        "browserRequirements": "Requires a modern browser with IndexedDB and Web Share API support.",
+        "isAccessibleForFree": true,
+        "inLanguage": "en",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

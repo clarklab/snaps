@@ -32,12 +32,13 @@ export default defineConfig({
         "icons/apple-touch-icon.png",
         "icons/favicon-64.png",
         "fonts/*.woff2",
+        "unfurl.webp",
       ],
       manifest: {
-        name: "Snaps",
+        name: "Snaps — A color hunt for your travels",
         short_name: "Snaps",
         description:
-          "Collect nine photos of nine colors. A local-first color photo game.",
+          "A pocket-size color hunt. Collect nine photos of nine colors, then share the rainbow you found.",
         id: "/",
         start_url: "/",
         scope: "/",
@@ -45,7 +46,16 @@ export default defineConfig({
         orientation: "portrait",
         background_color: "#0c0c0e",
         theme_color: "#0c0c0e",
-        categories: ["photo", "games", "lifestyle"],
+        lang: "en",
+        dir: "ltr",
+        // Explicitly tell stores we don't have a wrapped native app — keep
+        // the install prompt pointing at the PWA itself.
+        prefer_related_applications: false,
+        categories: ["photo", "lifestyle", "games"],
+        // Re-using an open Snaps tab on relaunch keeps the user's IndexedDB
+        // photo store on the same client instance instead of opening a
+        // second tab with stale state.
+        launch_handler: { client_mode: ["focus-existing", "auto"] },
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -54,6 +64,38 @@ export default defineConfig({
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
+          },
+          {
+            src: "icons/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+        ],
+        // Native-iPhone 14 Pro frames; the Play Store + the modern install
+        // prompts surface these so users see the actual UI before they
+        // tap install.
+        screenshots: [
+          {
+            src: "marketing/01-grid-partial.png",
+            sizes: "1179x2556",
+            type: "image/png",
+            form_factor: "narrow",
+            label: "Home grid filling in with photos",
+          },
+          {
+            src: "marketing/02-welcome-sheet.png",
+            sizes: "1179x2556",
+            type: "image/png",
+            form_factor: "narrow",
+            label: "How Snaps works — welcome sheet",
+          },
+          {
+            src: "marketing/03-intro.png",
+            sizes: "1179x2556",
+            type: "image/png",
+            form_factor: "narrow",
+            label: "Watercolor intro",
           },
         ],
       },

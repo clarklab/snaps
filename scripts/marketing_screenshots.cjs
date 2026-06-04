@@ -17,7 +17,9 @@ const path = require("path");
 const CHROME =
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const URL = "http://localhost:5273";
-const OUT_DIR = path.join(__dirname, "..", "marketing");
+// Saved into public/marketing so the PWA manifest can reference them as
+// /marketing/*.png and they get precached for offline installs.
+const OUT_DIR = path.join(__dirname, "..", "public", "marketing");
 
 // iPhone 14 Pro logical 393×852 @3x = 1179×2556 native pixels — the
 // standard 6.1" App Store screenshot size.
