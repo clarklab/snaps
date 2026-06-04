@@ -165,7 +165,11 @@ export default function App() {
         </button>
       </header>
 
-      <ColorBoard onSelect={openColor} supportsVT={supportsVT} />
+      <ColorBoard
+        onSelect={openColor}
+        supportsVT={supportsVT}
+        activeId={selectedId}
+      />
 
       {/* Detail overlays the home and morphs from the tapped tile.
           Plain conditional (no AnimatePresence): each transition through

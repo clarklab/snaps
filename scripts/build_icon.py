@@ -32,6 +32,9 @@ PALETTE = [
 
 # Dark canvas so the colored iris glows; matches the PWA theme/background.
 BG = (12, 12, 14, 255)
+# White canvas for the browser favicon and the iOS touch icon, so the iris
+# reads cleanly against light browser chrome and the home screen.
+WHITE = (255, 255, 255, 255)
 
 # One dot per brand hue — keeps the loop reading as the chromatic
 # palette itself rather than a continuous gradient. Fewer dots = bigger,
@@ -63,9 +66,11 @@ def color_at(i):
     return lerp(PALETTE[lo], PALETTE[hi], pos - math.floor(pos))
 
 
-def render(size, transparent=False):
+def render(size, bg=BG):
+    """Render the iris at `size`. `bg` is the canvas fill — pass a 4-tuple
+    color, or (0, 0, 0, 0) for a transparent background."""
     s = size * SS
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0) if transparent else BG)
+    img = Image.new("RGBA", (s, s), bg)
     draw = ImageDraw.Draw(img)
 
     cx = cy = s / 2
@@ -90,15 +95,15 @@ def render(size, transparent=False):
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     targets = [
-        # (filename, size, transparent background?)
-        ("icon-192.png", 192, False),
-        ("icon-512.png", 512, False),
-        ("maskable-512.png", 512, False),  # bg fills the maskable safe area
-        ("apple-touch-icon.png", 180, False),  # iOS dislikes transparency
-        ("favicon-64.png", 64, True),  # crisp on any browser chrome
+        # (filename, size, background fill)
+        ("icon-192.png", 192, BG),
+        ("icon-512.png", 512, BG),
+        ("maskable-512.png", 512, BG),  # bg fills the maskable safe area
+        ("apple-touch-icon.png", 180, WHITE),  # white home-screen tile
+        ("favicon-64.png", 64, WHITE),  # white plate behind browser chrome
     ]
-    for name, size, transparent in targets:
-        img = render(size, transparent=transparent)
+    for name, size, bg in targets:
+        img = render(size, bg=bg)
         path = os.path.join(OUT_DIR, name)
         img.save(path)
         print(f"wrote {path} ({size}x{size})")

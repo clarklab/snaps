@@ -17,9 +17,19 @@ import { Thumbnail } from "./Thumbnail";
 export function ColorBoard({
   onSelect,
   supportsVT,
+  activeId,
 }: {
   onSelect: (colorId: string) => void;
   supportsVT: boolean;
+  /**
+   * The color whose detail is currently open (or null on the bare grid).
+   * The open board renders a fixed overlay *on top of* this grid rather than
+   * unmounting it, so the tapped tile and the detail hero would otherwise
+   * both claim the same `view-transition-name`. A duplicate name makes the
+   * browser skip the whole transition, so we hand the name to the detail
+   * hero by dropping it from the matching tile while that board is open.
+   */
+  activeId: string | null;
 }) {
   const demo = useDemo();
   const store = useStore();
@@ -72,6 +82,7 @@ export function ColorBoard({
             color={color}
             onSelect={onSelect}
             supportsVT={supportsVT}
+            active={activeId === color.id}
           />
         ))}
       </div>
@@ -194,10 +205,13 @@ function ColorTile({
   color,
   onSelect,
   supportsVT,
+  active,
 }: {
   color: QuestColor;
   onSelect: (colorId: string) => void;
   supportsVT: boolean;
+  /** This tile's board is the one currently open in the detail overlay. */
+  active: boolean;
 }) {
   const { scheme } = useTheme();
   const store = useStore();
@@ -231,7 +245,12 @@ function ColorTile({
         boxShadow: color.needsBorder
           ? "inset 0 0 0 1px var(--hairline), var(--tile-shadow)"
           : "var(--tile-shadow)",
-        viewTransitionName: supportsVT ? `hero-${color.id}` : undefined,
+        // While this board is open, the detail hero owns `hero-<id>`; keeping
+        // it here too would make the name non-unique and abort the morph. The
+        // tile is hidden behind the overlay anyway, so dropping it costs
+        // nothing and the name is reclaimed the moment the board closes.
+        viewTransitionName:
+          supportsVT && !active ? `hero-${color.id}` : undefined,
       }}
     >
       {Array.from({ length: SLOTS_PER_BOARD }).map((_, i) => {
