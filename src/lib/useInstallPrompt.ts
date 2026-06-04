@@ -21,7 +21,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-function detectStandalone(): boolean {
+/**
+ * True when the app is running as an installed PWA (launched from the home
+ * screen) rather than inside a browser tab. Exported so non-install UI — like
+ * the first-run intro — can tell that the user has already added the app and
+ * skip flows that only make sense in the browser.
+ */
+export function detectStandalone(): boolean {
   if (typeof window === "undefined") return false;
   if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
   // iOS Safari sets this non-standard flag when launched from the home screen.
