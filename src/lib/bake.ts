@@ -21,6 +21,7 @@
  */
 
 import { COLORS, SLOTS_PER_BOARD } from "../colors";
+import { type Crop, cropSourceRect } from "./crop";
 import { getPhoto } from "./db";
 
 export type ShareStyle = "bleed" | "rounded";
@@ -44,6 +45,8 @@ export interface BakeBoardOptions {
   style: ShareStyle;
   /** When set, lays out as a mosaic. When undefined, uses uniform 3×3. */
   mosaic?: MosaicSpec;
+  /** Per-photo non-destructive crop, matching the grid framing. */
+  crops?: Record<string, Crop>;
   /** Output square edge in px for grid; for mosaic this is the column width × 3
    *  and the canvas is 4/3 as tall. Defaults to 2160. */
   size?: number;
@@ -93,7 +96,8 @@ export async function bakeBoard(opts: BakeBoardOptions): Promise<Blob> {
       const y = gap + pos.row * (cellH + gap);
       const w = pos.colSpan * cellW + (pos.colSpan - 1) * gap;
       const h = pos.rowSpan * cellH + (pos.rowSpan - 1) * gap;
-      drawCell(ctx, img, x, y, w, h, opts.style === "rounded");
+      const crop = cropFor(opts.crops, opts.photoIds[slot]);
+      drawCell(ctx, img, x, y, w, h, opts.style === "rounded", crop);
     }
   } else {
     for (let i = 0; i < SLOTS_PER_BOARD; i++) {
@@ -101,7 +105,8 @@ export async function bakeBoard(opts: BakeBoardOptions): Promise<Blob> {
       const row = Math.floor(i / cols);
       const x = gap + col * (cellW + gap);
       const y = gap + row * (cellH + gap);
-      drawCell(ctx, images[i], x, y, cellW, cellH, opts.style === "rounded");
+      const crop = cropFor(opts.crops, opts.photoIds[i]);
+      drawCell(ctx, images[i], x, y, cellW, cellH, opts.style === "rounded", crop);
     }
   }
 
@@ -114,6 +119,8 @@ export interface BakeOverallOptions {
   /** Background hex; the only place the user picks it explicitly. */
   bg: string;
   style: ShareStyle;
+  /** Per-photo non-destructive crop, matching the grid framing. */
+  crops?: Record<string, Crop>;
   /** Output square edge. Default 2700 ⇒ each photo cell ≈ 300px in `bleed`. */
   size?: number;
 }
@@ -153,10 +160,18 @@ export async function bakeOverall(opts: BakeOverallOptions): Promise<Blob> {
     const row = Math.floor(i / cols);
     const x = gap + col * (cellSize + gap);
     const y = gap + row * (cellSize + gap);
-    drawCell(ctx, images[i], x, y, cellSize, cellSize, opts.style === "rounded");
+    const crop = cropFor(opts.crops, ids[i]);
+    drawCell(ctx, images[i], x, y, cellSize, cellSize, opts.style === "rounded", crop);
   }
 
   return canvasToJpeg(canvas);
+}
+
+function cropFor(
+  crops: Record<string, Crop> | undefined,
+  id: string | null,
+): Crop | undefined {
+  return crops && id ? crops[id] : undefined;
 }
 
 function drawCell(
@@ -167,6 +182,7 @@ function drawCell(
   w: number,
   h: number,
   rounded: boolean,
+  crop?: Crop,
 ) {
   if (!img) return;
   // Corner radius is ~9% of the shorter side — same eyeballed value as
@@ -178,7 +194,7 @@ function drawCell(
     roundedRectPath(ctx, x, y, w, h, radius);
     ctx.clip();
   }
-  drawCover(ctx, img, x, y, w, h);
+  drawCover(ctx, img, x, y, w, h, crop);
   if (radius > 0) ctx.restore();
 }
 
@@ -203,7 +219,11 @@ async function loadFullImage(photoId: string): Promise<HTMLImageElement | null> 
   }
 }
 
-/** Center-crop `object-fit: cover` for a canvas. */
+/**
+ * `object-fit: cover` for a canvas. Center-crops by default; when a
+ * non-destructive `crop` is supplied it reproduces the grid's pan/zoom by
+ * narrowing the source rectangle, so the share matches what's on screen.
+ */
 function drawCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -211,6 +231,7 @@ function drawCover(
   y: number,
   w: number,
   h: number,
+  crop?: Crop,
 ) {
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
@@ -229,6 +250,7 @@ function drawCover(
     sh = iw / targetRatio;
     sy = (ih - sh) / 2;
   }
+  if (crop) ({ sx, sy, sw, sh } = cropSourceRect({ sx, sy, sw, sh }, w, h, crop));
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 

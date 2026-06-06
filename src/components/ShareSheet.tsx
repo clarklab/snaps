@@ -71,6 +71,7 @@ export function ShareSheet({
           bg,
           style,
           mosaic: target.mosaic,
+          crops: store.crops,
         });
         name = `snaps-${target.color.id}.jpg`;
       } else {
@@ -78,6 +79,7 @@ export function ShareSheet({
           boards: store.boards,
           bg,
           style,
+          crops: store.crops,
         });
         name = `snaps-overall.jpg`;
       }
@@ -194,6 +196,7 @@ function BoardPreview({
   style: ShareStyle;
   bg: string;
 }) {
+  const store = useStore();
   const { color, slots, mosaic } = target;
   const rounded = style === "rounded";
   const gap = rounded ? "1.8%" : 0;
@@ -255,7 +258,14 @@ function BoardPreview({
                 minHeight: 0,
               }}
             >
-              {photoId && <Thumbnail photoId={photoId} alt="" tint={bg} />}
+              {photoId && (
+                <Thumbnail
+                  photoId={photoId}
+                  alt=""
+                  tint={bg}
+                  crop={store.crops[photoId]}
+                />
+              )}
             </div>
           );
         })}
@@ -315,7 +325,14 @@ function OverallPreview({ style, bg }: { style: ShareStyle; bg: string }) {
               minHeight: 0,
             }}
           >
-            {photoId && <Thumbnail photoId={photoId} alt="" tint={bg} />}
+            {photoId && (
+              <Thumbnail
+                photoId={photoId}
+                alt=""
+                tint={bg}
+                crop={store.crops[photoId]}
+              />
+            )}
           </div>
         ))}
       </div>

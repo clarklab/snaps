@@ -1,5 +1,7 @@
 import { animate, AnimatePresence, motion, useMotionValue } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { type Crop } from "../lib/crop";
+import { CropEditor } from "./CropEditor";
 import { Thumbnail } from "./Thumbnail";
 
 function clamp(value: number, min: number, max: number): number {
@@ -23,16 +25,22 @@ function clamp(value: number, min: number, max: number): number {
  */
 export function PhotoViewer({
   photoId,
+  crop,
   onClose,
   onReplace,
   onRemove,
+  onSaveCrop,
 }: {
   photoId: string;
+  crop?: Crop | null;
   onClose: () => void;
   onReplace: () => void;
   onRemove: () => void;
+  /** Persist the photo's non-destructive grid crop (null clears it). */
+  onSaveCrop: (crop: Crop | null) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
 
   const scale = useMotionValue(1);
   const x = useMotionValue(0);
@@ -243,9 +251,21 @@ export function PhotoViewer({
         <RoundButton onClick={onClose} label="Close">
           <CloseIcon />
         </RoundButton>
-        <RoundButton onClick={() => setMenuOpen((v) => !v)} label="More">
-          <DotsIcon />
-        </RoundButton>
+        <div style={{ display: "flex", gap: 10 }}>
+          <RoundButton
+            onClick={() => {
+              resetZoom();
+              setMenuOpen(false);
+              setCropOpen(true);
+            }}
+            label="Crop"
+          >
+            <CropIcon />
+          </RoundButton>
+          <RoundButton onClick={() => setMenuOpen((v) => !v)} label="More">
+            <DotsIcon />
+          </RoundButton>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -284,6 +304,20 @@ export function PhotoViewer({
               Remove
             </MenuItem>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {cropOpen && (
+          <CropEditor
+            photoId={photoId}
+            initialCrop={crop}
+            onCancel={() => setCropOpen(false)}
+            onSave={(next) => {
+              onSaveCrop(next);
+              setCropOpen(false);
+            }}
+          />
         )}
       </AnimatePresence>
     </motion.div>
@@ -355,6 +389,20 @@ function CloseIcon() {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CropIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M5 1v12h12M1 5h12v12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

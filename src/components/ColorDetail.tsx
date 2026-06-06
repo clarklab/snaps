@@ -344,6 +344,7 @@ export function ColorDetail({
                     photoId={photoId}
                     alt={`${color.name} photo`}
                     tint={wash(hex, scheme)}
+                    crop={store.crops[photoId]}
                   />
                 </motion.div>
               ) : (
@@ -509,6 +510,8 @@ export function ColorDetail({
         {viewerSlot != null && slots[viewerSlot] && (
           <PhotoViewer
             photoId={slots[viewerSlot]!}
+            crop={store.crops[slots[viewerSlot]!]}
+            onSaveCrop={(c) => store.setCrop(slots[viewerSlot]!, c)}
             onClose={() => setViewerSlot(null)}
             onReplace={() => {
               const slot = viewerSlot;
