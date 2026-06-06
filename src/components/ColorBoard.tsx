@@ -264,7 +264,14 @@ function ColorTile({
               background: hex,
             }}
           >
-            {photoId && <Thumbnail photoId={photoId} alt="" tint={hex} />}
+            {photoId && (
+              <Thumbnail
+                photoId={photoId}
+                alt=""
+                tint={hex}
+                crop={store.crops[photoId]}
+              />
+            )}
           </div>
         );
       })}

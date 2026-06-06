@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getPhoto } from "../lib/db";
+import { type Crop, cropTransform, isIdentityCrop } from "../lib/crop";
 
 /**
  * Convert a string ID into a stable, small float in a given range.
@@ -22,6 +23,9 @@ function hashToRange(seed: string, min: number, max: number): number {
  * - `variant="full"` uses the original, full-quality bytes for the viewer.
  * - `tint` colors the loading placeholder so the parent's color flows
  *   through the empty slot instead of a neutral gray flash.
+ * - `crop` applies a non-destructive grid framing (pan/zoom) as a pure CSS
+ *   transform on top of `object-fit: cover`. The stored bytes are untouched;
+ *   this only changes which part of the photo fills the cell.
  *
  * We call `img.decode()` before flipping opacity so the fade-in runs on
  * a fully-decoded frame; without this, very large originals can paint
@@ -33,12 +37,14 @@ export function Thumbnail({
   alt = "",
   objectFit = "cover",
   tint,
+  crop,
 }: {
   photoId: string;
   variant?: "thumb" | "full";
   alt?: string;
   objectFit?: "cover" | "contain";
   tint?: string;
+  crop?: Crop | null;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -94,7 +100,12 @@ export function Thumbnail({
   // photos still look neatly aligned (the rotation animates to 0 anyway).
   const rotateFrom = hashToRange(photoId, -8, 8);
 
-  return (
+  // A non-destructive grid crop only makes sense for the cover-filled grid
+  // thumbnail; the full viewer always shows the untouched original.
+  const applyCrop =
+    objectFit === "cover" && variant === "thumb" && !isIdentityCrop(crop);
+
+  const img = (
     <motion.img
       ref={handleImgRef}
       src={url}
@@ -132,5 +143,23 @@ export function Thumbnail({
         pointerEvents: "none",
       }}
     />
+  );
+
+  if (!applyCrop) return img;
+
+  // The crop is applied on a wrapper so it composes cleanly with the image's
+  // own entrance animation. The cell's `overflow: hidden` clips the zoom.
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        transform: cropTransform(crop!),
+        transformOrigin: "center center",
+        willChange: "transform",
+      }}
+    >
+      {img}
+    </div>
   );
 }

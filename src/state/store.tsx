@@ -18,13 +18,18 @@ import {
   type PhotoRecord,
 } from "../lib/db";
 import { processImage } from "../lib/image";
+import { type Crop, isIdentityCrop } from "../lib/crop";
 import { safeGet, safeSet, setStorageErrorHandler } from "../lib/safeStorage";
 
 /** colorId -> array of SLOTS_PER_BOARD photo ids (or null). */
 type Boards = Record<string, (string | null)[]>;
 
+/** photoId -> non-destructive grid crop transform. */
+type Crops = Record<string, Crop>;
+
 const STORAGE_KEY = "snaps.boards.v1";
 const SAMPLE_KEY = "snaps.sampleIds.v1";
+const CROP_KEY = "snaps.crops.v1";
 const PERSIST_KEY = "snaps.persistRequested.v1";
 
 function emptyBoards(): Boards {
@@ -58,6 +63,29 @@ function loadSampleIds(): string[] {
     return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
   } catch {
     return [];
+  }
+}
+
+function loadCrops(): Crops {
+  try {
+    const raw = safeGet(CROP_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Crops = {};
+    for (const [id, c] of Object.entries(parsed as Record<string, unknown>)) {
+      const v = c as Partial<Crop> | null;
+      if (
+        v &&
+        typeof v.scale === "number" &&
+        typeof v.x === "number" &&
+        typeof v.y === "number"
+      ) {
+        out[id] = { scale: v.scale, x: v.x, y: v.y };
+      }
+    }
+    return out;
+  } catch {
+    return {};
   }
 }
 
@@ -95,6 +123,10 @@ interface StoreValue {
   /** Swap the contents of two slots in a board. Either slot may be empty. */
   movePhoto: (colorId: string, fromSlot: number, toSlot: number) => void;
   clearBoard: (colorId: string) => Promise<void>;
+  /** Per-photo non-destructive grid crop (undefined = default cover framing). */
+  crops: Crops;
+  /** Set or clear (pass null) a photo's grid crop. Never touches photo bytes. */
+  setCrop: (photoId: string, crop: Crop | null) => void;
   /** Whether any currently-placed photo came from the sample set. */
   hasSamples: boolean;
   /** Number of placed photos that came from the sample set. */
@@ -109,6 +141,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const toast = useToast();
   const [boards, setBoards] = useState<Boards>(loadBoards);
   const [sampleIds, setSampleIds] = useState<string[]>(loadSampleIds);
+  const [crops, setCrops] = useState<Crops>(loadCrops);
 
   // Keep a ref so async seeders read the latest sample set without re-binding.
   const sampleRef = useRef(sampleIds);
@@ -139,6 +172,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     safeSet(SAMPLE_KEY, JSON.stringify(sampleIds));
   }, [sampleIds]);
 
+  useEffect(() => {
+    safeSet(CROP_KEY, JSON.stringify(crops));
+  }, [crops]);
+
   // Reconcile boards with IndexedDB once on mount: drop refs to photos that
   // no longer exist (partial wipe, storage eviction, manual db edits).
   useEffect(() => {
@@ -163,6 +200,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       if (dropped > 0) {
         setSampleIds((s) => s.filter((x) => ids.has(x)));
+        setCrops((prev) => {
+          const next: Crops = {};
+          for (const [id, c] of Object.entries(prev)) {
+            if (ids.has(id)) next[id] = c;
+          }
+          return Object.keys(next).length === Object.keys(prev).length
+            ? prev
+            : next;
+        });
         toast.push({
           title: `Recovered ${dropped} missing photo${dropped === 1 ? "" : "s"}`,
           detail: "Some slots were empty in storage and have been cleared.",
@@ -239,11 +285,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (previous) {
           void deletePhoto(previous);
           setSampleIds((s) => s.filter((x) => x !== previous));
+          dropCrop(previous);
         }
         return { ...prev, [colorId]: board };
       });
     },
     [toast]
+  );
+
+  // Forget a photo's crop. Defined as a ref-free helper so the removal paths
+  // (replace / remove / clear) can call it from inside their state updaters.
+  const dropCrop = useCallback((id: string) => {
+    setCrops((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const setCrop = useCallback(
+    (photoId: string, crop: Crop | null) => {
+      setCrops((prev) => {
+        if (crop && !isIdentityCrop(crop)) {
+          return { ...prev, [photoId]: crop };
+        }
+        if (!(photoId in prev)) return prev;
+        const next = { ...prev };
+        delete next[photoId];
+        return next;
+      });
+    },
+    []
   );
 
   const movePhoto = useCallback(
@@ -267,10 +340,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (id) {
         void deletePhoto(id);
         setSampleIds((s) => s.filter((x) => x !== id));
+        dropCrop(id);
       }
       return { ...prev, [colorId]: board };
     });
-  }, []);
+  }, [dropCrop]);
 
   const clearBoard = useCallback(async (colorId: string) => {
     setBoards((prev) => {
@@ -278,6 +352,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const id of board) if (id) void deletePhoto(id);
       const removed = new Set(board.filter(Boolean) as string[]);
       setSampleIds((s) => s.filter((x) => !removed.has(x)));
+      setCrops((c) => {
+        const next: Crops = {};
+        for (const [id, crop] of Object.entries(c)) {
+          if (!removed.has(id)) next[id] = crop;
+        }
+        return next;
+      });
       return { ...prev, [colorId]: Array(SLOTS_PER_BOARD).fill(null) };
     });
   }, []);
@@ -298,6 +379,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
+    setCrops((c) => {
+      const next: Crops = {};
+      for (const [id, crop] of Object.entries(c)) {
+        if (!ids.has(id)) next[id] = crop;
+      }
+      return next;
+    });
     setSampleIds([]);
   }, []);
 
@@ -313,6 +401,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removePhoto,
       movePhoto,
       clearBoard,
+      crops,
+      setCrop,
       hasSamples: sampleIds.length > 0,
       sampleCount: sampleIds.length,
       clearSamples,
@@ -328,6 +418,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removePhoto,
       movePhoto,
       clearBoard,
+      crops,
+      setCrop,
       sampleIds,
       clearSamples,
     ]
