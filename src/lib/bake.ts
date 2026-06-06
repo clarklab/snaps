@@ -235,22 +235,25 @@ function drawCover(
 ) {
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
-  const targetRatio = w / h;
-  const srcRatio = iw / ih;
-  let sx = 0;
-  let sy = 0;
-  let sw = iw;
-  let sh = ih;
-  if (srcRatio > targetRatio) {
-    // Source is wider than target: crop horizontal.
-    sw = ih * targetRatio;
-    sx = (iw - sw) / 2;
+  let sx: number, sy: number, sw: number, sh: number;
+  if (crop) {
+    ({ sx, sy, sw, sh } = cropSourceRect(crop, w, h, iw, ih));
   } else {
-    // Source is taller than target: crop vertical.
-    sh = iw / targetRatio;
-    sy = (ih - sh) / 2;
+    // Center-crop cover.
+    const targetRatio = w / h;
+    const srcRatio = iw / ih;
+    sx = 0;
+    sy = 0;
+    sw = iw;
+    sh = ih;
+    if (srcRatio > targetRatio) {
+      sw = ih * targetRatio;
+      sx = (iw - sw) / 2;
+    } else {
+      sh = iw / targetRatio;
+      sy = (ih - sh) / 2;
+    }
   }
-  if (crop) ({ sx, sy, sw, sh } = cropSourceRect({ sx, sy, sw, sh }, w, h, crop));
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 

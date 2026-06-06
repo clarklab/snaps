@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getPhoto } from "../lib/db";
-import { type Crop, cropTransform, isIdentityCrop } from "../lib/crop";
+import { type Crop, cropBox, isIdentityCrop } from "../lib/crop";
 
 /**
  * Convert a string ID into a stable, small float in a given range.
@@ -48,6 +48,7 @@ export function Thumbnail({
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -60,6 +61,7 @@ export function Thumbnail({
       const blob = variant === "full" ? rec.full : rec.thumb;
       objectUrl = URL.createObjectURL(blob);
       setUrl(objectUrl);
+      if (rec.width && rec.height) setNatural({ w: rec.width, h: rec.height });
     });
 
     return () => {
@@ -67,6 +69,26 @@ export function Thumbnail({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [photoId, variant]);
+
+  // The crop is laid out against the actual cell size, so measure it. A
+  // callback ref attaches the observer exactly when the cropped cell mounts
+  // (which is after the async natural-size load), avoiding a stale measure.
+  const cropActive =
+    objectFit === "cover" && variant === "thumb" && !isIdentityCrop(crop);
+  const [cell, setCell] = useState<{ w: number; h: number } | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const setCellRef = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (!el) {
+      roRef.current = null;
+      return;
+    }
+    const update = () => setCell({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    roRef.current = ro;
+  }, []);
 
   // Decode before paint: avoids a flash when the image is large or the
   // browser is busy. Falls back to the load event if decode() rejects
@@ -100,10 +122,48 @@ export function Thumbnail({
   // photos still look neatly aligned (the rotation animates to 0 anyway).
   const rotateFrom = hashToRange(photoId, -8, 8);
 
-  // A non-destructive grid crop only makes sense for the cover-filled grid
-  // thumbnail; the full viewer always shows the untouched original.
-  const applyCrop =
-    objectFit === "cover" && variant === "thumb" && !isIdentityCrop(crop);
+  // A non-destructive grid crop reframes the photo within the cell. It needs
+  // the cell's measured size and the photo's natural size to stay gap-free.
+  if (cropActive && natural) {
+    const box =
+      cell && cell.w > 0 && cell.h > 0
+        ? cropBox(crop!, cell.w, cell.h, natural.w, natural.h)
+        : null;
+    return (
+      <div
+        ref={setCellRef}
+        style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative", background: tint }}
+      >
+        <img
+          ref={handleImgRef}
+          src={url}
+          alt={alt}
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          style={{
+            position: "absolute",
+            // Until the cell is measured, fall back to a plain cover fit so the
+            // photo is never missing — the precise box lands a frame later.
+            ...(box
+              ? {
+                  width: box.width,
+                  height: box.height,
+                  left: box.left,
+                  top: box.top,
+                }
+              : { width: "100%", height: "100%", objectFit: "cover", left: 0, top: 0 }),
+            opacity: loaded ? 1 : 0,
+            transition: "opacity 0.28s ease",
+            display: "block",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+    );
+  }
 
   const img = (
     <motion.img
@@ -145,21 +205,5 @@ export function Thumbnail({
     />
   );
 
-  if (!applyCrop) return img;
-
-  // The crop is applied on a wrapper so it composes cleanly with the image's
-  // own entrance animation. The cell's `overflow: hidden` clips the zoom.
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        transform: cropTransform(crop!),
-        transformOrigin: "center center",
-        willChange: "transform",
-      }}
-    >
-      {img}
-    </div>
-  );
+  return img;
 }

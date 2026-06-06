@@ -3,30 +3,29 @@
  *
  * A crop is *purely* a display transform — it never edits a single byte of the
  * stored photo. The original bytes and the generated thumbnail in IndexedDB are
- * left exactly as they were; the grid simply renders the thumbnail through this
- * transform so the user can choose which part of the photo frames best in a
- * square cell. Clearing the crop returns to the default center-cover framing.
+ * left exactly as they were; a cell simply reframes the photo so the user can
+ * choose which part fills it. Clearing the crop returns to the default
+ * center-cover framing.
  *
- * The transform is the CSS equivalent of `object-fit: cover` followed by
- * `translate(x%, y%) scale(scale)` about the element centre:
+ * Model: the photo is scaled to *cover* the cell (so it always fills it, never
+ * letterboxed), optionally zoomed past that baseline, then panned within the
+ * overscan. Because panning is bounded to the overscan, the cell is always
+ * fully covered — there is never a gap.
+ *
  *   - `scale` (>= 1) zooms past the baseline cover fit.
- *   - `x` / `y` pan the photo, expressed as a percentage of the cell so the
- *     same crop reads identically in the square editor and the square grid
- *     cell regardless of pixel size.
- *
- * Authoring happens in a square viewport (CropEditor) and the primary grid
- * cells are square, so the offsets are clamped against a square viewport. That
- * keeps the photo fully covering the cell at every pan/zoom — there is never a
- * gap. (Applying the same crop to a non-square share cell re-fits via cover and
- * stays gap-free for sane values.)
+ *   - `x` / `y` pan, each in [-1, 1]: 0 is centered, -1/1 push to the opposite
+ *     edges of the available overscan. Expressing pan as a fraction of the
+ *     overscan makes a crop resolution- and cell-independent: the same crop
+ *     reframes identically in the square editor, the square grid cells, the
+ *     home-tile minis, and the baked share.
  */
 
 export interface Crop {
   /** Zoom past the baseline cover fit. >= 1. */
   scale: number;
-  /** Horizontal pan, percent of the cell. */
+  /** Horizontal pan as a fraction of the overscan, -1..1 (0 = centered). */
   x: number;
-  /** Vertical pan, percent of the cell. */
+  /** Vertical pan as a fraction of the overscan, -1..1 (0 = centered). */
   y: number;
 }
 
@@ -34,6 +33,10 @@ export const IDENTITY_CROP: Crop = { scale: 1, x: 0, y: 0 };
 
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 5;
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
 
 /** True when the crop is (effectively) the default center-cover framing. */
 export function isIdentityCrop(c: Crop | null | undefined): boolean {
@@ -45,69 +48,76 @@ export function isIdentityCrop(c: Crop | null | undefined): boolean {
   );
 }
 
-/** The CSS transform applied on top of an `object-fit: cover` image. */
-export function cropTransform(c: Crop): string {
-  return `translate(${c.x}%, ${c.y}%) scale(${c.scale})`;
+/** Clamp scale to its range and pan to [-1, 1]. */
+export function clampCrop(c: Crop): Crop {
+  return {
+    scale: clamp(c.scale, MIN_SCALE, MAX_SCALE),
+    x: clamp(c.x, -1, 1),
+    y: clamp(c.y, -1, 1),
+  };
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
+/** The scale that makes a `nw`×`nh` image cover a `cw`×`ch` box. */
+export function coverScale(
+  cw: number,
+  ch: number,
+  nw: number,
+  nh: number
+): number {
+  return Math.max(cw / nw, ch / nh);
+}
+
+export interface CropBox {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
 }
 
 /**
- * The largest pan (percent of cell) that keeps the cover-fit photo fully
- * covering a square viewport, per axis, at a given scale.
- *
- * In a square viewport the photo's short edge exactly fills the cell at
- * scale 1 (no pan room on that axis) while the long edge overflows by the
- * aspect ratio. Scaling adds room on both axes.
+ * Absolute size/position for an image laid out inside a `cw`×`ch` box so it
+ * covers the box, zoomed by `crop.scale` and panned by `crop.x`/`y`. Used for
+ * both the live CSS render (px within a measured cell) and the editor stage.
  */
-function maxOffsets(
-  scale: number,
-  iw: number,
-  ih: number
-): { x: number; y: number } {
-  const long = Math.max(iw, ih) / Math.min(iw, ih);
-  const rx = iw >= ih ? long : 1;
-  const ry = iw >= ih ? 1 : long;
+export function cropBox(
+  crop: Crop,
+  cw: number,
+  ch: number,
+  nw: number,
+  nh: number
+): CropBox {
+  const s = coverScale(cw, ch, nw, nh) * clamp(crop.scale, MIN_SCALE, MAX_SCALE);
+  const width = nw * s;
+  const height = nh * s;
+  const overscanX = Math.max(0, width - cw);
+  const overscanY = Math.max(0, height - ch);
+  const x = clamp(crop.x, -1, 1);
+  const y = clamp(crop.y, -1, 1);
   return {
-    x: Math.max(0, ((rx * scale - 1) / 2) * 100),
-    y: Math.max(0, ((ry * scale - 1) / 2) * 100),
-  };
-}
-
-/** Clamp scale to range and pan within the gap-free bounds for the image. */
-export function clampCrop(c: Crop, iw: number, ih: number): Crop {
-  const scale = clamp(c.scale, MIN_SCALE, MAX_SCALE);
-  const max = maxOffsets(scale, iw, ih);
-  return {
-    scale,
-    x: clamp(c.x, -max.x, max.x),
-    y: clamp(c.y, -max.y, max.y),
+    width,
+    height,
+    left: (cw - width) / 2 + (x * overscanX) / 2,
+    top: (ch - height) / 2 + (y * overscanY) / 2,
   };
 }
 
 /**
- * Given a center-cover source rectangle (`base`) mapping the image onto a
- * `w`×`h` destination cell, return the sub-rectangle of the image that the
- * crop transform makes visible — so a canvas bake matches the CSS grid.
+ * The sub-rectangle of the source image (`nw`×`nh`) that fills a `destW`×`destH`
+ * cell under this crop — so a canvas bake matches the on-screen cell.
  */
 export function cropSourceRect(
-  base: { sx: number; sy: number; sw: number; sh: number },
-  w: number,
-  h: number,
-  c: Crop
+  crop: Crop,
+  destW: number,
+  destH: number,
+  nw: number,
+  nh: number
 ): { sx: number; sy: number; sw: number; sh: number } {
-  if (isIdentityCrop(c)) return base;
-  const txpx = (c.x / 100) * w;
-  const typx = (c.y / 100) * h;
-  // Cell-space window visible after `translate(...) scale(...)` about center.
-  const u0 = w / 2 - (w / 2 + txpx) / c.scale;
-  const v0 = h / 2 - (h / 2 + typx) / c.scale;
+  const box = cropBox(crop, destW, destH, nw, nh);
+  const s = box.width / nw; // displayed px per source px
   return {
-    sx: base.sx + (u0 / w) * base.sw,
-    sy: base.sy + (v0 / h) * base.sh,
-    sw: base.sw / c.scale,
-    sh: base.sh / c.scale,
+    sx: -box.left / s,
+    sy: -box.top / s,
+    sw: destW / s,
+    sh: destH / s,
   };
 }
