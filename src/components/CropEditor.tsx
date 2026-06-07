@@ -7,7 +7,8 @@ import {
   MAX_SCALE,
   MIN_SCALE,
   clampCrop,
-  cropTransform,
+  coverScale,
+  cropBox,
   isIdentityCrop,
 } from "../lib/crop";
 import { haptic } from "../lib/haptics";
@@ -17,10 +18,11 @@ import { haptic } from "../lib/haptics";
  *
  * Move-and-scale framing in a square viewport that mirrors the square grid
  * cell, so what the user lines up here is exactly what the grid shows. We
- * never re-encode the photo — the result is just a `{ scale, x, y }` transform
- * stored alongside the board. Works entirely offline (no library, no network):
- * the image is read straight from IndexedDB and gestures are hand-rolled with
- * native pointer events, matching the viewer's approach.
+ * never re-encode the photo — the result is just a `{ scale, x, y }` reframe
+ * stored alongside the board. Panning moves *within* the photo (it's always
+ * scaled to cover the viewport), so it can never reveal a gap. Works entirely
+ * offline (no library, no network): the image is read straight from IndexedDB
+ * and gestures are hand-rolled with native pointer events.
  */
 export function CropEditor({
   photoId,
@@ -36,9 +38,9 @@ export function CropEditor({
   const [url, setUrl] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [crop, setCrop] = useState<Crop>(initialCrop ?? IDENTITY_CROP);
+  const [side, setSide] = useState(0);
 
   const stageRef = useRef<HTMLDivElement>(null);
-  const stageSize = useRef(1);
 
   // Pointer/gesture state, mirroring PhotoViewer's single-source-of-truth model
   // so pan (one pointer) and pinch (two pointers) never fight.
@@ -64,6 +66,17 @@ export function CropEditor({
     };
   }, [photoId]);
 
+  // Measure the square stage so pan deltas map to the photo's overscan.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const update = () => setSide(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Lock body scroll while the editor is open.
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -73,19 +86,18 @@ export function CropEditor({
     };
   }, []);
 
-  const measure = () => {
-    const el = stageRef.current;
-    if (el) stageSize.current = el.clientWidth || 1;
-  };
-
-  const apply = (next: Crop) => {
-    if (!natural) return;
-    setCrop(clampCrop(next, natural.w, natural.h));
+  // Overscan (px) available for panning at the current scale, per axis.
+  const overscan = (scale: number) => {
+    if (!natural || !side) return { x: 0, y: 0 };
+    const s = coverScale(side, side, natural.w, natural.h) * scale;
+    return {
+      x: Math.max(0, natural.w * s - side),
+      y: Math.max(0, natural.h * s - side),
+    };
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
     (e.target as Element).setPointerCapture(e.pointerId);
-    measure();
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
@@ -102,19 +114,21 @@ export function CropEditor({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const V = stageSize.current;
 
     if (pointers.current.size === 2 && pinchStart.current) {
       const [a, b] = [...pointers.current.values()];
       const distance = Math.hypot(b.x - a.x, b.y - a.y);
-      const nextScale =
-        (distance / pinchStart.current.distance) * pinchStart.current.scale;
-      apply({ ...crop, scale: nextScale });
+      const scale = (distance / pinchStart.current.distance) * pinchStart.current.scale;
+      setCrop((c) => clampCrop({ ...c, scale }));
     } else if (pointers.current.size === 1 && dragStart.current) {
-      // Pan follows the finger; offsets are a percentage of the cell.
-      const dx = ((e.clientX - dragStart.current.x) / V) * 100;
-      const dy = ((e.clientY - dragStart.current.y) / V) * 100;
-      apply({ ...crop, x: dragStart.current.cx + dx, y: dragStart.current.cy + dy });
+      const over = overscan(crop.scale);
+      const dx = e.clientX - dragStart.current.x;
+      const dy = e.clientY - dragStart.current.y;
+      // Convert a pixel drag into a fraction of the overscan; dragging the
+      // photo moves it within the cover, so the visible window follows.
+      const nx = over.x > 0 ? dragStart.current.cx + (dx / (over.x / 2)) : 0;
+      const ny = over.y > 0 ? dragStart.current.cy + (dy / (over.y / 2)) : 0;
+      setCrop((c) => clampCrop({ ...c, x: nx, y: ny }));
     }
   };
 
@@ -137,6 +151,11 @@ export function CropEditor({
     haptic("tap");
     onSave(isIdentityCrop(crop) ? null : crop);
   };
+
+  const box =
+    natural && side
+      ? cropBox(crop, side, side, natural.w, natural.h)
+      : null;
 
   return (
     <motion.div
@@ -183,8 +202,7 @@ export function CropEditor({
         </button>
       </div>
 
-      {/* Square cropping stage, matching a square grid cell. The area outside
-          the square is dimmed so the framing reads clearly. */}
+      {/* Square cropping stage, matching a square grid cell. */}
       <div
         style={{
           flex: 1,
@@ -222,15 +240,13 @@ export function CropEditor({
                   if (t.naturalWidth && t.naturalHeight)
                     setNatural({ w: t.naturalWidth, h: t.naturalHeight });
                 }
-                measure();
               }}
               style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+                position: "absolute",
+                ...(box
+                  ? { width: box.width, height: box.height, left: box.left, top: box.top }
+                  : { width: "100%", height: "100%", objectFit: "cover", left: 0, top: 0 }),
                 display: "block",
-                transform: cropTransform(crop),
-                transformOrigin: "center center",
                 WebkitUserSelect: "none",
                 userSelect: "none",
                 WebkitTouchCallout: "none",
@@ -260,7 +276,9 @@ export function CropEditor({
           max={MAX_SCALE}
           step={0.01}
           value={crop.scale}
-          onChange={(e) => apply({ ...crop, scale: parseFloat(e.target.value) })}
+          onChange={(e) =>
+            setCrop((c) => clampCrop({ ...c, scale: parseFloat(e.target.value) }))
+          }
           aria-label="Zoom"
           style={{ flex: 1, accentColor: "#0a84ff" }}
         />
