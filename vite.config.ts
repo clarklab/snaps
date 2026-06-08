@@ -28,6 +28,22 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // We ship a hand-written service worker (src/sw.ts) because the Web
+      // Share Target POST can only be answered by the worker on a server-less
+      // static host — something the auto-generated worker can't do. The
+      // worker still precaches the shell/fonts/samples and serves the SPA
+      // fallback exactly as before (see src/sw.ts).
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: {
+        globPatterns: [
+          "**/*.{js,css,html,png,svg,woff2,webp,json,webmanifest}",
+        ],
+        // Workbox refuses to precache files larger than this; raise it a
+        // little so larger sample sets (≈5 MB total today) don't get skipped.
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+      },
       includeAssets: [
         "icons/apple-touch-icon.png",
         "icons/favicon-64.png",
@@ -56,6 +72,24 @@ export default defineConfig({
         // photo store on the same client instance instead of opening a
         // second tab with stale state.
         launch_handler: { client_mode: ["focus-existing", "auto"] },
+        // Web Share Target — registers Snaps in the OS share sheet so a photo
+        // picked in the gallery can be sent straight here. POST + multipart so
+        // we receive the actual file bytes; the service worker intercepts the
+        // POST (src/sw.ts) and the app walks the user through placing it.
+        // Supported on Android / desktop Chromium; iOS Safari ignores it.
+        share_target: {
+          action: "/share-target",
+          method: "POST",
+          enctype: "multipart/form-data",
+          params: {
+            files: [
+              {
+                name: "photos",
+                accept: ["image/*", "image/jpeg", "image/png", "image/webp", "image/heic"],
+              },
+            ],
+          },
+        },
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -98,19 +132,6 @@ export default defineConfig({
             label: "Watercolor intro",
           },
         ],
-      },
-      workbox: {
-        // Precache the app shell + fonts + sample manifest + sample WebPs
-        // so the full offline experience (including "load sample boards")
-        // works after the first visit.
-        globPatterns: [
-          "**/*.{js,css,html,png,svg,woff2,webp,json,webmanifest}",
-        ],
-        cleanupOutdatedCaches: true,
-        navigateFallback: "index.html",
-        // Workbox refuses to precache files larger than this; raise it a
-        // little so larger sample sets (≈5 MB total today) don't get skipped.
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
     }),
   ],

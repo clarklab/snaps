@@ -16,5 +16,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  "//": "sw.ts is a service worker (WebWorker libs, not DOM) bundled by vite-plugin-pwa via esbuild — exclude it from the app's DOM-lib tsc pass to avoid global type conflicts.",
+  "exclude": ["src/sw.ts"]
 }

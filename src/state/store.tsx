@@ -193,7 +193,7 @@ interface StoreValue {
     slot: number,
     file: Blob,
     opts?: { sample?: boolean }
-  ) => Promise<void>;
+  ) => Promise<string>;
   removePhoto: (colorId: string, slot: number) => Promise<void>;
   /** Swap the contents of two slots in a board. Either slot may be empty. */
   movePhoto: (colorId: string, fromSlot: number, toSlot: number) => void;
@@ -445,6 +445,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         return { ...prev, [colorId]: board };
       });
+
+      // Hand back the new id so callers can immediately act on it (e.g. open
+      // the crop editor on a freshly-shared photo).
+      return id;
     },
     [toast]
   );
