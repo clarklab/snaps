@@ -19,8 +19,14 @@ export interface PhotoRecord {
 }
 
 const DB_NAME = "snaps-quest";
-const DB_VERSION = 1;
+// v2 adds the `meta` store used for the durable layout backup. Bumping the
+// version triggers onupgradeneeded, which creates the store; the existing
+// `photos` store (and every photo in it) is left completely untouched.
+const DB_VERSION = 2;
 const STORE = "photos";
+// Key/value store mirroring the board layout so it shares the photos' own
+// durability — see putMeta/getMeta and the backup logic in store.tsx.
+const META = "meta";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -42,6 +48,11 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: "id" });
       }
+      // Out-of-line keys (we pass the key explicitly in putMeta) — the meta
+      // store holds a handful of small named records, not keyed objects.
+      if (!db.objectStoreNames.contains(META)) {
+        db.createObjectStore(META);
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -56,8 +67,12 @@ function openDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-function tx(db: IDBDatabase, mode: IDBTransactionMode): IDBObjectStore {
-  return db.transaction(STORE, mode).objectStore(STORE);
+function tx(
+  db: IDBDatabase,
+  mode: IDBTransactionMode,
+  store: string = STORE,
+): IDBObjectStore {
+  return db.transaction(store, mode).objectStore(store);
 }
 
 function isQuotaDOMError(err: unknown): boolean {
@@ -93,18 +108,65 @@ export async function getPhoto(id: string): Promise<PhotoRecord | undefined> {
   });
 }
 
-/** Returns the set of IDs that exist in IndexedDB. Used to reconcile boards. */
-export async function existingPhotoIds(): Promise<Set<string>> {
+/**
+ * Returns the set of photo IDs that exist in IndexedDB, or `null` if the
+ * store could not be read reliably (DB open blocked, transient error, the
+ * iOS-Safari "empty on first access" quirk, etc.).
+ *
+ * The distinction matters: callers reconcile board layout against this set
+ * by dropping references to photos that are gone. An empty Set means
+ * "definitively no photos"; `null` means "don't know" — and a `null` must
+ * never be treated as "everything is missing", or a transient read blip
+ * would wipe every board. See store.tsx.
+ */
+export async function existingPhotoIds(): Promise<Set<string> | null> {
   try {
     const db = await openDB();
-    return await new Promise<Set<string>>((resolve, reject) => {
+    return await new Promise<Set<string> | null>((resolve, reject) => {
       const req = tx(db, "readonly").getAllKeys();
       req.onsuccess = () =>
         resolve(new Set((req.result as IDBValidKey[]).map(String)));
       req.onerror = () => reject(req.error);
     });
   } catch {
-    return new Set();
+    return null;
+  }
+}
+
+/**
+ * Store a small named record in the `meta` key/value store. Used for the
+ * durable layout backup, which lives in IndexedDB alongside the photo bytes
+ * so it survives a localStorage wipe (the layout's only other home).
+ */
+export async function putMeta(key: string, value: unknown): Promise<void> {
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    let req: IDBRequest;
+    try {
+      req = tx(db, "readwrite", META).put(value, key);
+    } catch (err) {
+      reject(isQuotaDOMError(err) ? new StorageQuotaError(err) : err);
+      return;
+    }
+    req.onsuccess = () => resolve();
+    req.onerror = () => {
+      const err = req.error;
+      reject(isQuotaDOMError(err) ? new StorageQuotaError(err) : err);
+    };
+  });
+}
+
+/** Read a named record from the `meta` store; `null` on miss or any error. */
+export async function getMeta<T>(key: string): Promise<T | null> {
+  try {
+    const db = await openDB();
+    return await new Promise<T | null>((resolve, reject) => {
+      const req = tx(db, "readonly", META).get(key);
+      req.onsuccess = () => resolve((req.result as T | undefined) ?? null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
   }
 }
 
