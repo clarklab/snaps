@@ -1,37 +1,32 @@
-import { useState } from "react";
 import { COLORS, swatch } from "../colors";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
 import { ProgressBar } from "./Progress";
 
 /**
- * Compact overall progress that lives inline in the top bar. Tap to toggle
- * between "colors complete" and "photos placed". The label reads as one
- * line: "N/M" then a tiny 3×3 of color dots in place of the word
- * "colors" / "photos" — same shorthand the rest of the app speaks.
+ * Compact overall progress that lives inline in the top bar. The label is
+ * one line: "N/M" colors complete then a tiny 3×3 of color dots in place of
+ * the word "colors" — the rainbow shorthand the rest of the app speaks.
+ *
+ * The bar itself carries two fills layered on the same track:
+ *  - a gray underlay that pre-fills with every individual photo placed
+ *    (fine-grained, all 81 slots), and
+ *  - a brighter accent fill on top that advances one ninth each time a whole
+ *    color grid is finished.
+ * Both are measured in photos so the bright fill always sits within — and
+ * overlaps the left of — the gray one: the gray "levels up" to color as each
+ * board completes. The numeric label stays colors-complete (e.g. 0/9); we
+ * deliberately don't surface the 0/81 photo count.
  */
 export function OverallProgress() {
   const store = useStore();
-  const [showPhotos, setShowPhotos] = useState(
-    () => localStorage.getItem("snaps.progressMode") === "photos"
-  );
 
-  const value = showPhotos ? store.totalFilled : store.completedColors;
-  const total = showPhotos ? store.totalSlots : COLORS.length;
-
-  const toggle = () =>
-    setShowPhotos((v) => {
-      const next = !v;
-      localStorage.setItem("snaps.progressMode", next ? "photos" : "colors");
-      return next;
-    });
+  const value = store.completedColors;
+  const total = COLORS.length;
 
   return (
-    <button
-      onClick={toggle}
-      aria-label={`${value} of ${total} ${
-        showPhotos ? "photos placed" : "colors complete"
-      }. Tap to switch.`}
+    <div
+      aria-label={`${value} of ${total} colors complete, ${store.totalFilled} of ${store.totalSlots} photos placed`}
       style={{
         flex: 1,
         minWidth: 0,
@@ -45,7 +40,18 @@ export function OverallProgress() {
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <ProgressBar value={value} total={total} tint="var(--accent)" />
+        <ProgressBar
+          // Bright fill = completed color grids, expressed in photos so it
+          // shares the photo scale with the gray underlay and overlaps it.
+          value={value * (store.totalSlots / total)}
+          total={store.totalSlots}
+          tint="var(--accent)"
+          underlay={{
+            value: store.totalFilled,
+            total: store.totalSlots,
+            tint: "var(--label-tertiary)",
+          }}
+        />
       </div>
       <div
         style={{
@@ -63,7 +69,7 @@ export function OverallProgress() {
         </span>
         <ColorDotsIcon />
       </div>
-    </button>
+    </div>
   );
 }
 

@@ -4,21 +4,52 @@ export function ProgressBar({
   value,
   total,
   tint,
+  underlay,
 }: {
   value: number;
   total: number;
   tint: string;
+  /**
+   * An optional second fill drawn *beneath* the main one, sharing the same
+   * track and left edge. Used on the home grid so a fine-grained gray fill
+   * (every photo placed) shows underneath, with the brighter main fill
+   * (every color grid completed) overlapping it. The main fill is always
+   * ≤ the underlay, so it reads as the underlay "leveling up" to color.
+   */
+  underlay?: { value: number; total: number; tint: string };
 }) {
   const pct = total === 0 ? 0 : (value / total) * 100;
+  const underPct =
+    underlay && underlay.total !== 0
+      ? (underlay.value / underlay.total) * 100
+      : 0;
   return (
     <div
       style={{
+        position: "relative",
         height: 6,
         borderRadius: 999,
         background: "var(--fill-quaternary)",
         overflow: "hidden",
       }}
     >
+      {/* Gray photo-progress fill, beneath the bright fill. Same flash-of-full
+          guard (`initial={{ width: 0 }}`) as the main bar below. */}
+      {underlay && (
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${underPct}%` }}
+          transition={{ type: "spring", stiffness: 240, damping: 28 }}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            height: "100%",
+            borderRadius: 999,
+            background: underlay.tint,
+          }}
+        />
+      )}
       {/* `initial={{ width: 0 }}` is critical — without it the inner div
           renders at CSS `width: auto` on first paint (100% of parent),
           flashing a full bar that then snaps to the real value once
@@ -28,7 +59,12 @@ export function ProgressBar({
         initial={{ width: 0 }}
         animate={{ width: `${pct}%` }}
         transition={{ type: "spring", stiffness: 240, damping: 28 }}
-        style={{ height: "100%", borderRadius: 999, background: tint }}
+        style={{
+          position: "relative",
+          height: "100%",
+          borderRadius: 999,
+          background: tint,
+        }}
       />
     </div>
   );
