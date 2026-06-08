@@ -61,14 +61,22 @@ export function useGridDrag(opts: {
   // the consumer's onClick handler skip the tap path.
   const suppressNextTap = useRef(false);
 
-  const findCellAtPoint = useCallback((x: number, y: number): number | null => {
-    for (let i = 0; i < cellsRef.current.length; i++) {
-      const r = cellsRef.current[i]?.getBoundingClientRect();
-      if (!r) continue;
-      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
-    }
-    return null;
-  }, []);
+  // `exclude` is the slot currently being dragged. Its cell is translated to
+  // follow the pointer, so its bounding rect sits under the pointer too —
+  // hit-testing it would mask whichever cell actually lies beneath the drag.
+  // Skipping it lets us resolve the real drop target underneath.
+  const findCellAtPoint = useCallback(
+    (x: number, y: number, exclude: number): number | null => {
+      for (let i = 0; i < cellsRef.current.length; i++) {
+        if (i === exclude) continue;
+        const r = cellsRef.current[i]?.getBoundingClientRect();
+        if (!r) continue;
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
+      }
+      return null;
+    },
+    [],
+  );
 
   const setCellRef = useCallback(
     (i: number) => (el: HTMLElement | null) => {
@@ -117,7 +125,7 @@ export function useGridDrag(opts: {
           return;
         }
         ev.preventDefault();
-        const target = findCellAtPoint(ev.clientX, ev.clientY);
+        const target = findCellAtPoint(ev.clientX, ev.clientY, i);
         const prev = stateRef.current;
         if (prev) setState({ ...prev, x: dx, y: dy, target });
       };
