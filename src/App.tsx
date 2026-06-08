@@ -5,6 +5,7 @@ import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
+import { PhotoHunt } from "./components/PhotoHunt";
 import { SampleCard } from "./components/SampleCard";
 import { Settings } from "./components/Settings";
 import { useToast } from "./components/Toast";
@@ -169,6 +170,13 @@ export default function App() {
         onSelect={openColor}
         supportsVT={supportsVT}
         activeId={selectedId}
+      />
+
+      {/* Photo-hunt helper FAB (Croatian flag). Only on the home grid —
+          hidden whenever a color detail, settings, the intro, or the tour
+          owns the screen. */}
+      <PhotoHunt
+        visible={!selected && !settingsOpen && !introOpen && !demo.running}
       />
 
       {/* Detail overlays the home and morphs from the tapped tile.

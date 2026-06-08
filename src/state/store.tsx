@@ -13,6 +13,8 @@ import { COLORS, SLOTS_PER_BOARD } from "../colors";
 import {
   deletePhoto,
   existingPhotoIds,
+  getMeta,
+  putMeta,
   putPhoto,
   StorageQuotaError,
   type PhotoRecord,
@@ -31,6 +33,23 @@ const STORAGE_KEY = "snaps.boards.v1";
 const SAMPLE_KEY = "snaps.sampleIds.v1";
 const CROP_KEY = "snaps.crops.v1";
 const PERSIST_KEY = "snaps.persistRequested.v1";
+
+// Durable layout backup, kept in IndexedDB (the `meta` store) alongside the
+// photo bytes. localStorage is the primary home for the layout, but it can
+// be cleared independently of IndexedDB (Safari "clear history", storage
+// pressure, a stray site-data reset) — when that happens this backup lets us
+// silently rebuild which photo sat in which slot. Bump the version if the
+// snapshot shape ever changes incompatibly.
+const BACKUP_META_KEY = "layout.v1";
+const BACKUP_VERSION = 1;
+
+interface LayoutBackup {
+  v: number;
+  savedAt: number;
+  boards: Boards;
+  crops: Crops;
+  sampleIds: string[];
+}
 
 function emptyBoards(): Boards {
   const b: Boards = {};
@@ -90,6 +109,62 @@ function loadCrops(): Crops {
 }
 
 /**
+ * Rebuild boards / crops / sample ids from a layout backup, keeping only the
+ * photos that still physically exist in IndexedDB (`presentIds`). Anything
+ * referenced by the backup but no longer on the device is silently dropped,
+ * so a restore can never resurrect a dangling slot. Returns the sanitized
+ * state plus the count of slots actually refilled.
+ */
+function sanitizeBackup(
+  backup: LayoutBackup,
+  presentIds: Set<string>,
+): { boards: Boards; crops: Crops; sampleIds: string[]; filled: number } {
+  const boards = emptyBoards();
+  let filled = 0;
+  const src =
+    backup.boards && typeof backup.boards === "object" ? backup.boards : {};
+  for (const c of COLORS) {
+    const arr = Array.isArray(src[c.id]) ? src[c.id] : [];
+    for (let i = 0; i < SLOTS_PER_BOARD; i++) {
+      const v = arr[i];
+      if (typeof v === "string" && presentIds.has(v)) {
+        boards[c.id][i] = v;
+        filled++;
+      }
+    }
+  }
+  const crops: Crops = {};
+  if (backup.crops && typeof backup.crops === "object") {
+    for (const [id, c] of Object.entries(backup.crops)) {
+      const cv = c as Partial<Crop> | null;
+      if (
+        cv &&
+        typeof cv.scale === "number" &&
+        typeof cv.x === "number" &&
+        typeof cv.y === "number" &&
+        presentIds.has(id)
+      ) {
+        crops[id] = { scale: cv.scale, x: cv.x, y: cv.y };
+      }
+    }
+  }
+  const sampleIds = Array.isArray(backup.sampleIds)
+    ? backup.sampleIds.filter(
+        (x) => typeof x === "string" && presentIds.has(x),
+      )
+    : [];
+  return { boards, crops, sampleIds, filled };
+}
+
+/** Total filled slots across every board. */
+function countFilled(boards: Boards): number {
+  return COLORS.reduce(
+    (n, c) => n + (boards[c.id]?.filter(Boolean).length ?? 0),
+    0,
+  );
+}
+
+/**
  * Best-effort: ask the OS not to evict our IndexedDB data. The result is
  * cached in localStorage so we never nag the user again. iOS Safari grants
  * this silently after some engagement; Chrome grants it for installed PWAs.
@@ -143,6 +218,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [sampleIds, setSampleIds] = useState<string[]>(loadSampleIds);
   const [crops, setCrops] = useState<Crops>(loadCrops);
 
+  // Hydration gate: flips true once the mount-time restore/reconcile pass has
+  // run. The durable backup must not be written before this, or the empty
+  // board briefly present after a wiped localStorage could clobber a good
+  // backup before we get the chance to restore from it.
+  const [hydrated, setHydrated] = useState(false);
+  // Whether the photo store read cleanly this session. When false we refuse
+  // to overwrite the backup with an *empty* layout (the emptiness can't be
+  // trusted); a non-empty layout is always safe to back up.
+  const storeReadOkRef = useRef(false);
+
   // Keep a ref so async seeders read the latest sample set without re-binding.
   const sampleRef = useRef(sampleIds);
   sampleRef.current = sampleIds;
@@ -176,50 +261,121 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     safeSet(CROP_KEY, JSON.stringify(crops));
   }, [crops]);
 
-  // Reconcile boards with IndexedDB once on mount: drop refs to photos that
-  // no longer exist (partial wipe, storage eviction, manual db edits).
+  // Mount-time hydration. Two jobs, once:
+  //   1. Self-heal — if localStorage came up empty but the durable backup in
+  //      IndexedDB still points at photos that physically exist, restore the
+  //      layout silently.
+  //   2. Reconcile — otherwise drop board references to photos that are
+  //      genuinely gone (partial wipe, eviction, manual db edits).
   useEffect(() => {
     let cancelled = false;
-    existingPhotoIds().then((ids) => {
+    // Read once for its initial localStorage-loaded value.
+    const localCount = countFilled(boards);
+
+    (async () => {
+      const [ids, backup] = await Promise.all([
+        existingPhotoIds(),
+        getMeta<LayoutBackup>(BACKUP_META_KEY),
+      ]);
       if (cancelled) return;
-      let dropped = 0;
-      setBoards((prev) => {
-        const next: Boards = {};
-        for (const c of COLORS) {
-          next[c.id] = (prev[c.id] ?? Array(SLOTS_PER_BOARD).fill(null)).map(
-            (id) => {
-              if (id && !ids.has(id)) {
-                dropped++;
-                return null;
-              }
-              return id;
-            },
-          );
+
+      // A clean read (even a genuinely empty one) means a currently-empty
+      // layout is real and safe to mirror into the backup.
+      storeReadOkRef.current = ids !== null;
+
+      // 1. Self-heal. Guarded on a reliable id read so we only ever re-attach
+      //    photos we've confirmed are still on the device.
+      if (localCount === 0 && ids && backup) {
+        const restored = sanitizeBackup(backup, ids);
+        if (restored.filled > 0) {
+          setBoards(restored.boards);
+          setCrops(restored.crops);
+          setSampleIds(restored.sampleIds);
+          setHydrated(true);
+          return;
         }
-        return dropped > 0 ? next : prev;
-      });
-      if (dropped > 0) {
-        setSampleIds((s) => s.filter((x) => ids.has(x)));
-        setCrops((prev) => {
-          const next: Crops = {};
-          for (const [id, c] of Object.entries(prev)) {
-            if (ids.has(id)) next[id] = c;
-          }
-          return Object.keys(next).length === Object.keys(prev).length
-            ? prev
-            : next;
-        });
-        toast.push({
-          title: `Recovered ${dropped} missing photo${dropped === 1 ? "" : "s"}`,
-          detail: "Some slots were empty in storage and have been cleared.",
-          tone: "info",
-        });
       }
-    });
+
+      // 2. Reconcile — drop references to photos that are genuinely gone.
+      //    Two guards make this safe against silent mass loss:
+      //      - ids === null: the read failed/was blocked → don't touch boards.
+      //      - the store reports *zero* photos while localStorage still claims
+      //        some: almost certainly a spurious-empty read (iOS Safari is
+      //        known to return an empty result right after launch), not a real
+      //        wipe → also skip. A genuine total eviction just leaves dangling
+      //        refs that self-correct on a later clean read, which is harmless
+      //        and infinitely preferable to nuking everyone's layout.
+      //    Partial mismatches (some present, some gone) still reconcile.
+      const spuriousEmpty = ids !== null && ids.size === 0 && localCount > 0;
+      if (ids && !spuriousEmpty) {
+        let dropped = 0;
+        setBoards((prev) => {
+          const next: Boards = {};
+          for (const c of COLORS) {
+            next[c.id] = (prev[c.id] ?? Array(SLOTS_PER_BOARD).fill(null)).map(
+              (id) => {
+                if (id && !ids.has(id)) {
+                  dropped++;
+                  return null;
+                }
+                return id;
+              },
+            );
+          }
+          return dropped > 0 ? next : prev;
+        });
+        if (dropped > 0) {
+          setSampleIds((s) => s.filter((x) => ids.has(x)));
+          setCrops((prev) => {
+            const next: Crops = {};
+            for (const [id, c] of Object.entries(prev)) {
+              if (ids.has(id)) next[id] = c;
+            }
+            return Object.keys(next).length === Object.keys(prev).length
+              ? prev
+              : next;
+          });
+          toast.push({
+            title: `Recovered ${dropped} missing photo${dropped === 1 ? "" : "s"}`,
+            detail: "Some slots were empty in storage and have been cleared.",
+            tone: "info",
+          });
+        }
+      }
+
+      setHydrated(true);
+    })();
+
     return () => {
       cancelled = true;
     };
+    // Runs once on mount. `boards` is read only for its initial value; the
+    // stable `toast` is the sole dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
+
+  // Durable layout backup → IndexedDB, alongside the photo bytes. Debounced so
+  // a burst of edits coalesces into a single write. Gated on `hydrated` so we
+  // never persist the transient empty board that exists before the restore
+  // pass; and we refuse to overwrite a saved backup with an empty layout
+  // unless the photo store read cleanly this session (so a blocked read can't
+  // erase a good backup). Failures are swallowed — this is a best-effort
+  // secondary copy; localStorage remains the primary, synchronous store.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (countFilled(boards) === 0 && !storeReadOkRef.current) return;
+    const snapshot: LayoutBackup = {
+      v: BACKUP_VERSION,
+      savedAt: Date.now(),
+      boards,
+      crops,
+      sampleIds,
+    };
+    const t = window.setTimeout(() => {
+      void putMeta(BACKUP_META_KEY, snapshot).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+  }, [hydrated, boards, crops, sampleIds]);
 
   const filledCount = useCallback(
     (colorId: string) => boards[colorId]?.filter(Boolean).length ?? 0,
