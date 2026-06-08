@@ -50,7 +50,7 @@ interface SeedStore {
     slot: number,
     file: Blob,
     opts?: { sample?: boolean }
-  ) => Promise<void>;
+  ) => Promise<string>;
 }
 
 /**

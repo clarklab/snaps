@@ -27,6 +27,12 @@ color and ends up with a beautiful single-hue grid.
   Board layout lives in `localStorage`; photo bytes live in IndexedDB.
 - **Installable PWA.** Add to Home Screen for a standalone, full-screen app that
   works completely offline (app shell + fonts are precached).
+- **Share into Snaps.** Once installed, Snaps registers as a share target
+  (Web Share Target API): pick a photo in your gallery, hit **Share → Snaps**,
+  and the app asks which color and which slot, then lets you set a
+  non-destructive crop. Supported on Android / desktop Chromium; iOS Safari
+  doesn't implement share targets, so Snaps simply won't appear in its share
+  sheet there.
 - **Progress, gently.** Each color tile shows a `n/9` ring; the home screen
   shows an overall bar that taps to toggle between "colors complete" (`2 of 9`)
   and "photos placed" (`42 of 81`).
@@ -53,17 +59,21 @@ public/
 src/
   main.tsx                Entry; wraps app in Theme + Store providers
   App.tsx                 Home header + board, detail overlay, settings
+  sw.ts                   Custom service worker (precache + Web Share Target)
   colors.ts               The nine colors, swatches, contrast helpers
   index.css               Tokens (light/dark), @font-face, resets
   lib/
-    db.ts                 IndexedDB blob store (full + thumb)
+    db.ts                 IndexedDB blob store (full + thumb) + layout backup
     image.ts              Thumbnail generation (canvas), never touches original
+    shareTarget.ts        Reads images shared into Snaps back out of the SW cache
   state/
     store.tsx             Boards: colorId → nine photo references
     theme.tsx             Appearance mode + effective scheme
   components/
     ColorBoard.tsx        Home 3×3 color grid + overall progress
     ColorDetail.tsx       A single color's 3×3 photo board + pickers
+    ShareIntake.tsx       Place + crop photos shared in via the share target
+    PhotoHunt.tsx         Croatian-flag FAB + multilingual photo-permission card
     PhotoViewer.tsx       Full-screen, full-quality viewer (drag to dismiss)
     Thumbnail.tsx         Loads a stored photo by id via object URL
     Progress.tsx          Slim bar + progress ring

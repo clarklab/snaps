@@ -1,4 +1,4 @@
-import { LayoutGroup } from "framer-motion";
+import { AnimatePresence, LayoutGroup } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { colorById } from "./colors";
 import { ColorBoard } from "./components/ColorBoard";
@@ -7,12 +7,14 @@ import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
 import { PhotoHunt } from "./components/PhotoHunt";
 import { SampleCard } from "./components/SampleCard";
+import { ShareIntake } from "./components/ShareIntake";
 import { Settings } from "./components/Settings";
 import { useToast } from "./components/Toast";
 import { useNetworkStatus } from "./lib/useNetworkStatus";
 import type { SwUpdateDetail } from "./lib/registerSW";
 import { safeGet, safeSet } from "./lib/safeStorage";
 import { detectStandalone } from "./lib/useInstallPrompt";
+import { clearShareFlag, takeSharedImages } from "./lib/shareTarget";
 import { startTransition } from "./lib/viewTransitions";
 import { TOUR_SEEN_KEY, useDemo } from "./state/demo";
 import { useStore } from "./state/store";
@@ -38,6 +40,9 @@ export default function App() {
   // rather than wherever the previous mount left it.
   const [introRunId, setIntroRunId] = useState(0);
   const [tourSeen, setTourSeen] = useState(() => safeGet(TOUR_SEEN_KEY) === "1");
+  // Images handed to Snaps via the OS share sheet (Web Share Target). When
+  // non-empty, the ShareIntake flow takes over to place + crop them.
+  const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const online = useNetworkStatus();
   const toast = useToast();
   const store = useStore();
@@ -67,6 +72,29 @@ export default function App() {
     markTourSeen();
     demo.start();
   };
+
+  // Web Share Target intake. The service worker stashes shared images and
+  // redirects here; we pull them out of the holding cache and hand them to
+  // the intake flow. Run on mount and whenever the app regains focus — the
+  // latter covers `launch_handler: focus-existing`, where the OS focuses an
+  // already-open Snaps instead of loading a fresh one. takeSharedImages()
+  // clears the cache as it reads, so repeat calls are harmless no-ops.
+  useEffect(() => {
+    let cancelled = false;
+    const ingest = async () => {
+      const files = await takeSharedImages();
+      if (cancelled) return;
+      clearShareFlag();
+      if (files.length > 0) setSharedFiles((prev) => (prev.length ? prev : files));
+    };
+    void ingest();
+    const onFocus = () => void ingest();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   // Notify on going offline. Skip the very first effect tick so a user who
   // opens the app while offline doesn't get an immediate scolding toast.
@@ -176,7 +204,13 @@ export default function App() {
           hidden whenever a color detail, settings, the intro, or the tour
           owns the screen. */}
       <PhotoHunt
-        visible={!selected && !settingsOpen && !introOpen && !demo.running}
+        visible={
+          !selected &&
+          !settingsOpen &&
+          !introOpen &&
+          !demo.running &&
+          sharedFiles.length === 0
+        }
       />
 
       {/* Detail overlays the home and morphs from the tapped tile.
@@ -236,6 +270,17 @@ export default function App() {
       {introOpen && (
         <Intro key={`intro-${introRunId}`} onDone={() => setIntroOpen(false)} />
       )}
+
+      {/* Web Share Target intake — placing + cropping photos shared into
+          Snaps from the OS gallery. Drives its own multi-photo queue. */}
+      <AnimatePresence>
+        {sharedFiles.length > 0 && (
+          <ShareIntake
+            files={sharedFiles}
+            onDone={() => setSharedFiles([])}
+          />
+        )}
+      </AnimatePresence>
     </LayoutGroup>
   );
 }
