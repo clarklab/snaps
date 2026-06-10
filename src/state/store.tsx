@@ -273,11 +273,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const localCount = countFilled(boards);
 
     (async () => {
-      const [ids, backup] = await Promise.all([
+      const [firstIds, backup] = await Promise.all([
         existingPhotoIds(),
         getMeta<LayoutBackup>(BACKUP_META_KEY),
       ]);
       if (cancelled) return;
+
+      let ids = firstIds;
+
+      // localStorage says we have photos but the store came back empty. That
+      // can't be trusted on its own: iOS Safari is known to return an empty
+      // IndexedDB result on the first transaction right after launch even when
+      // the data is intact (https://bugs.webkit.org/show_bug.cgi?id=226547).
+      // Re-issue the read a few times — a transient spurious-empty fills in on
+      // a later transaction, whereas a genuine eviction stays empty across all
+      // of them. Only a confirmed-empty read is allowed to clear refs below, so
+      // the quirk can no longer masquerade as (or hide) a real wipe.
+      for (
+        let attempt = 0;
+        attempt < 3 && ids !== null && ids.size === 0 && localCount > 0;
+        attempt++
+      ) {
+        await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+        if (cancelled) return;
+        ids = await existingPhotoIds();
+      }
 
       // A clean read (even a genuinely empty one) means a currently-empty
       // layout is real and safe to mirror into the backup.
@@ -296,18 +316,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Reconcile — drop references to photos that are genuinely gone.
-      //    Two guards make this safe against silent mass loss:
-      //      - ids === null: the read failed/was blocked → don't touch boards.
-      //      - the store reports *zero* photos while localStorage still claims
-      //        some: almost certainly a spurious-empty read (iOS Safari is
-      //        known to return an empty result right after launch), not a real
-      //        wipe → also skip. A genuine total eviction just leaves dangling
-      //        refs that self-correct on a later clean read, which is harmless
-      //        and infinitely preferable to nuking everyone's layout.
-      //    Partial mismatches (some present, some gone) still reconcile.
-      const spuriousEmpty = ids !== null && ids.size === 0 && localCount > 0;
-      if (ids && !spuriousEmpty) {
+      // 2. Reconcile — drop references to photos that are genuinely gone
+      //    (eviction, a partial wipe, manual db edits). The only guard left is
+      //    a failed read: `ids === null` means the store couldn't be read
+      //    (open blocked / transient error) so we must not touch the boards.
+      //    A *confirmed*-empty read (the retry loop above already gave iOS its
+      //    chances to fill in) is trusted as real, so a total eviction finally
+      //    clears its dangling refs instead of showing phantom filled slots
+      //    forever. Partial mismatches (some present, some gone) reconcile too.
+      if (ids) {
         let dropped = 0;
         setBoards((prev) => {
           const next: Boards = {};
