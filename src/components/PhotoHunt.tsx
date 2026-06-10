@@ -3,16 +3,19 @@ import { useEffect, useState } from "react";
 import { haptic } from "../lib/haptics";
 
 /**
- * A floating "ask permission" helper for shooting photos of people while
- * out on the color hunt. The hunt is set in Croatia, so the FAB wears a
- * Croatian flag and the default message is in Croatian — tap it and a
- * full-screen card explains, in big friendly type, that we're collecting
- * color photos and politely asks whether we may take a picture.
+ * The "ask permission" helper card for shooting photos of people while out
+ * on the color hunt. A full-screen card explains, in big friendly type,
+ * that we're collecting color photos and politely asks whether we may take
+ * a picture. The hunt is set in Croatia, so the default message is in
+ * Croatian.
  *
  * Croatia draws visitors (and has communities) from all over, so the card
  * carries a row of language chips — German, Dutch, Italian and the other
  * languages most commonly heard there — letting you flip the message to
  * whatever the person in front of you reads most easily.
+ *
+ * Opened from Settings; the home-grid FAB it used to hang off now belongs
+ * to the board manager (see Boards.tsx).
  */
 
 interface Lang {
@@ -105,8 +108,13 @@ const LANGS: Lang[] = [
   },
 ];
 
-export function PhotoHunt({ visible }: { visible: boolean }) {
-  const [open, setOpen] = useState(false);
+export function PhotoHuntCard({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   // Default to Croatian — that's the language of the place we're hunting in.
   const [langCode, setLangCode] = useState("hr");
   const lang = LANGS.find((l) => l.code === langCode) ?? LANGS[0];
@@ -125,57 +133,19 @@ export function PhotoHunt({ visible }: { visible: boolean }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, onClose]);
 
-  const openCard = () => {
-    haptic("select");
-    setOpen(true);
-  };
   const closeCard = () => {
     haptic("tap");
-    setOpen(false);
+    onClose();
   };
 
   return (
     <>
-      {/* FAB — sits in the bottom-right corner of the home grid. Hidden
-          (and non-interactive) whenever another surface owns the screen so
-          it never floats over the color detail, settings, or intro. */}
-      <motion.button
-        onClick={openCard}
-        aria-label="Show the photo-hunt request to ask someone if we may take their picture"
-        initial={false}
-        animate={{
-          opacity: visible ? 1 : 0,
-          scale: visible ? 1 : 0.6,
-        }}
-        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-        whileTap={{ scale: 0.92 }}
-        style={{
-          position: "fixed",
-          right: 20,
-          bottom: "calc(var(--safe-bottom) + 20px)",
-          width: 60,
-          height: 60,
-          borderRadius: 999,
-          padding: 0,
-          overflow: "hidden",
-          border: "2px solid var(--bg-elevated)",
-          boxShadow: "0 6px 20px rgba(0, 0, 0, 0.22)",
-          zIndex: 40,
-          pointerEvents: visible ? "auto" : "none",
-          display: "grid",
-          placeItems: "center",
-          background: "var(--bg-elevated)",
-        }}
-      >
-        <CroatianFlag />
-      </motion.button>
-
       <AnimatePresence>
         {open && (
           <motion.div
@@ -185,6 +155,10 @@ export function PhotoHunt({ visible }: { visible: boolean }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
             onClick={closeCard}
+            // Keep pointer gestures on the card: when embedded inside a
+            // bottom sheet, a stray swipe must not reach the sheet's
+            // drag-to-dismiss handler underneath.
+            onPointerDownCapture={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             style={{
@@ -330,66 +304,6 @@ export function PhotoHunt({ visible }: { visible: boolean }) {
         )}
       </AnimatePresence>
     </>
-  );
-}
-
-/**
- * A stylized Croatian flag: three horizontal bands (red / white / blue)
- * with the šahovnica — the red-and-white checkerboard — at its heart. The
- * real coat of arms has a crowned shield of 13×13 squares; this draws a
- * clean 5×5 checker, which reads unmistakably as Croatian at FAB size
- * while staying crisp as an inline SVG (no emoji-font dependency).
- */
-function CroatianFlag() {
-  const RED = "#d81e05";
-  const BLUE = "#171796";
-  // 5×5 checkerboard, top-left square red, centered on the flag.
-  const cells = [];
-  const n = 5;
-  const cell = 4; // px per square in the 60×40 viewBox
-  const size = n * cell; // 20
-  const x0 = 30 - size / 2; // 20
-  const y0 = 20 - size / 2; // 10
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
-      if ((r + c) % 2 === 0) {
-        cells.push(
-          <rect
-            key={`${r}-${c}`}
-            x={x0 + c * cell}
-            y={y0 + r * cell}
-            width={cell}
-            height={cell}
-            fill={RED}
-          />,
-        );
-      }
-    }
-  }
-  return (
-    <svg
-      width="44"
-      height="44"
-      viewBox="0 0 60 40"
-      preserveAspectRatio="xMidYMid slice"
-      aria-hidden
-      style={{ display: "block", borderRadius: 8 }}
-    >
-      <rect x="0" y="0" width="60" height="13.34" fill={RED} />
-      <rect x="0" y="13.34" width="60" height="13.33" fill="#ffffff" />
-      <rect x="0" y="26.67" width="60" height="13.33" fill={BLUE} />
-      {/* Shield: white field behind the checker, with a thin red frame. */}
-      <rect
-        x={x0 - 1}
-        y={y0 - 1}
-        width={size + 2}
-        height={size + 2}
-        fill="#ffffff"
-        stroke={RED}
-        strokeWidth="1"
-      />
-      {cells}
-    </svg>
   );
 }
 

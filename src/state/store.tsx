@@ -22,6 +22,7 @@ import {
 import { processImage } from "../lib/image";
 import { type Crop, isIdentityCrop } from "../lib/crop";
 import { safeGet, safeSet, setStorageErrorHandler } from "../lib/safeStorage";
+import { boardKeySuffix, DEFAULT_BOARD_ID } from "./boards";
 
 /** colorId -> array of SLOTS_PER_BOARD photo ids (or null). */
 type Boards = Record<string, (string | null)[]>;
@@ -29,6 +30,10 @@ type Boards = Record<string, (string | null)[]>;
 /** photoId -> non-destructive grid crop transform. */
 type Crops = Record<string, Crop>;
 
+// Base storage keys. These are the player's first board's keys VERBATIM —
+// multi-board support derives other boards' keys by suffixing the board id
+// (see boardKeySuffix), so existing data is never moved or rewritten and a
+// rolled-back build still reads it in place.
 const STORAGE_KEY = "snaps.boards.v1";
 const SAMPLE_KEY = "snaps.sampleIds.v1";
 const CROP_KEY = "snaps.crops.v1";
@@ -39,7 +44,8 @@ const PERSIST_KEY = "snaps.persistRequested.v1";
 // be cleared independently of IndexedDB (Safari "clear history", storage
 // pressure, a stray site-data reset) — when that happens this backup lets us
 // silently rebuild which photo sat in which slot. Bump the version if the
-// snapshot shape ever changes incompatibly.
+// snapshot shape ever changes incompatibly. Like the localStorage keys, this
+// is the first board's key verbatim; other boards suffix their id onto it.
 const BACKUP_META_KEY = "layout.v1";
 const BACKUP_VERSION = 1;
 
@@ -57,10 +63,10 @@ function emptyBoards(): Boards {
   return b;
 }
 
-function loadBoards(): Boards {
+function loadBoards(storageKey: string): Boards {
   const base = emptyBoards();
   try {
-    const raw = safeGet(STORAGE_KEY);
+    const raw = safeGet(storageKey);
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Boards;
     for (const c of COLORS) {
@@ -75,9 +81,9 @@ function loadBoards(): Boards {
   return base;
 }
 
-function loadSampleIds(): string[] {
+function loadSampleIds(sampleKey: string): string[] {
   try {
-    const raw = safeGet(SAMPLE_KEY);
+    const raw = safeGet(sampleKey);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
   } catch {
@@ -85,9 +91,9 @@ function loadSampleIds(): string[] {
   }
 }
 
-function loadCrops(): Crops {
+function loadCrops(cropKey: string): Crops {
   try {
-    const raw = safeGet(CROP_KEY);
+    const raw = safeGet(cropKey);
     const parsed = raw ? JSON.parse(raw) : {};
     if (!parsed || typeof parsed !== "object") return {};
     const out: Crops = {};
@@ -156,12 +162,20 @@ function sanitizeBackup(
   return { boards, crops, sampleIds, filled };
 }
 
-/** Total filled slots across every board. */
+/** Total filled slots across every color grid. */
 function countFilled(boards: Boards): number {
   return COLORS.reduce(
     (n, c) => n + (boards[c.id]?.filter(Boolean).length ?? 0),
     0,
   );
+}
+
+/**
+ * Read-only peek at any board's photo count straight from localStorage, for
+ * the boards list UI. Inactive boards have no live store; this never writes.
+ */
+export function filledCountForBoardId(boardId: string): number {
+  return countFilled(loadBoards(STORAGE_KEY + boardKeySuffix(boardId)));
 }
 
 /**
@@ -212,11 +226,31 @@ interface StoreValue {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({
+  boardId = DEFAULT_BOARD_ID,
+  children,
+}: {
+  /**
+   * Which board this store reads and writes. The provider must be remounted
+   * (keyed) when the board changes — every storage key below derives from
+   * this id once, at mount, and the whole hydration pass runs against it.
+   */
+  boardId?: string;
+  children: ReactNode;
+}) {
   const toast = useToast();
-  const [boards, setBoards] = useState<Boards>(loadBoards);
-  const [sampleIds, setSampleIds] = useState<string[]>(loadSampleIds);
-  const [crops, setCrops] = useState<Crops>(loadCrops);
+  // Per-board storage keys. The default board's suffix is empty, leaving the
+  // original keys untouched for everyone's existing data.
+  const suffix = boardKeySuffix(boardId);
+  const storageKey = STORAGE_KEY + suffix;
+  const sampleKey = SAMPLE_KEY + suffix;
+  const cropKey = CROP_KEY + suffix;
+  const backupMetaKey = BACKUP_META_KEY + suffix;
+  const [boards, setBoards] = useState<Boards>(() => loadBoards(storageKey));
+  const [sampleIds, setSampleIds] = useState<string[]>(() =>
+    loadSampleIds(sampleKey),
+  );
+  const [crops, setCrops] = useState<Crops>(() => loadCrops(cropKey));
 
   // Hydration gate: flips true once the mount-time restore/reconcile pass has
   // run. The durable backup must not be written before this, or the empty
@@ -250,16 +284,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    safeSet(STORAGE_KEY, JSON.stringify(boards));
-  }, [boards]);
+    safeSet(storageKey, JSON.stringify(boards));
+  }, [storageKey, boards]);
 
   useEffect(() => {
-    safeSet(SAMPLE_KEY, JSON.stringify(sampleIds));
-  }, [sampleIds]);
+    safeSet(sampleKey, JSON.stringify(sampleIds));
+  }, [sampleKey, sampleIds]);
 
   useEffect(() => {
-    safeSet(CROP_KEY, JSON.stringify(crops));
-  }, [crops]);
+    safeSet(cropKey, JSON.stringify(crops));
+  }, [cropKey, crops]);
 
   // Mount-time hydration. Two jobs, once:
   //   1. Self-heal — if localStorage came up empty but the durable backup in
@@ -275,7 +309,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (async () => {
       const [ids, backup] = await Promise.all([
         existingPhotoIds(),
-        getMeta<LayoutBackup>(BACKUP_META_KEY),
+        getMeta<LayoutBackup>(backupMetaKey),
       ]);
       if (cancelled) return;
 
@@ -349,8 +383,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // Runs once on mount. `boards` is read only for its initial value; the
-    // stable `toast` is the sole dependency.
+    // Runs once on mount. `boards` is read only for its initial value, and
+    // `backupMetaKey` is fixed for this mount (the provider is remounted per
+    // board); the stable `toast` is the sole dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
@@ -372,10 +407,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sampleIds,
     };
     const t = window.setTimeout(() => {
-      void putMeta(BACKUP_META_KEY, snapshot).catch(() => {});
+      void putMeta(backupMetaKey, snapshot).catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [hydrated, boards, crops, sampleIds]);
+  }, [hydrated, backupMetaKey, boards, crops, sampleIds]);
 
   const filledCount = useCallback(
     (colorId: string) => boards[colorId]?.filter(Boolean).length ?? 0,

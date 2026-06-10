@@ -5,6 +5,7 @@ import { haptic } from "../lib/haptics";
 import { useSampleLoader } from "../state/useSampleLoader";
 import { useStore } from "../state/store";
 import { useTheme, type AppearanceMode } from "../state/theme";
+import { PhotoHuntCard } from "./PhotoHunt";
 import { ProgressBar } from "./Progress";
 import { Sheet } from "./Sheet";
 
@@ -27,6 +28,9 @@ export function Settings({
   const { mode, setMode } = useTheme();
   const store = useStore();
   const [usage, setUsage] = useState<string | null>(null);
+  // The ask-permission language card (used to live on the home-grid FAB,
+  // which now belongs to the board manager). Renders above this sheet.
+  const [huntOpen, setHuntOpen] = useState(false);
 
   const {
     available: samplesAvailable,
@@ -136,6 +140,27 @@ export function Settings({
           compressed.
         </p>
 
+        <SectionLabel style={{ marginTop: 22 }}>Photo Hunt</SectionLabel>
+        <SmallButton
+          onClick={() => {
+            haptic("select");
+            setHuntOpen(true);
+          }}
+        >
+          🇭🇷 Show the ask-permission card
+        </SmallButton>
+        <p
+          style={{
+            fontSize: 12.5,
+            lineHeight: 1.45,
+            color: "var(--label-secondary)",
+            margin: "10px 2px 0",
+          }}
+        >
+          A big friendly card that politely asks — in Croatian and nine other
+          languages — whether you may take someone's picture.
+        </p>
+
         {/* Demo controls live together at the bottom — replay the intro
             and load/remove the curated sample photos. Two-up button row so
             both actions feel equally weighted. */}
@@ -227,6 +252,11 @@ export function Settings({
           snaps.quest · v1.0
         </p>
       </div>
+
+      {/* Full-screen, above the sheet (its z-index outranks the scrim, and
+          the card swallows pointer events so the sheet's drag-to-dismiss
+          never grabs gestures made on it). */}
+      <PhotoHuntCard open={huntOpen} onClose={() => setHuntOpen(false)} />
     </Sheet>
   );
 }

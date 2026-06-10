@@ -1,11 +1,11 @@
 import { AnimatePresence, LayoutGroup } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { colorById } from "./colors";
+import { BoardsFab, BoardsSheet } from "./components/Boards";
 import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
-import { PhotoHunt } from "./components/PhotoHunt";
 import { SampleCard } from "./components/SampleCard";
 import { ShareIntake } from "./components/ShareIntake";
 import { Settings } from "./components/Settings";
@@ -16,12 +16,15 @@ import { safeGet, safeSet } from "./lib/safeStorage";
 import { detectStandalone } from "./lib/useInstallPrompt";
 import { clearShareFlag, takeSharedImages } from "./lib/shareTarget";
 import { startTransition } from "./lib/viewTransitions";
+import { useBoards } from "./state/boards";
 import { TOUR_SEEN_KEY, useDemo } from "./state/demo";
 import { useStore } from "./state/store";
 
 export default function App() {
   const [userSelectedId, setSelectedId] = useState<string | null>(null);
   const [userSettingsOpen, setSettingsOpen] = useState(false);
+  // The board manager sheet, opened from the home-grid FAB.
+  const [boardsOpen, setBoardsOpen] = useState(false);
   // Intro state is initialized synchronously from localStorage so there's
   // no flicker on first paint: returning users render the home grid
   // immediately, first-time users render the intro immediately.
@@ -46,6 +49,7 @@ export default function App() {
   const online = useNetworkStatus();
   const toast = useToast();
   const store = useStore();
+  const { activeBoard } = useBoards();
   const demo = useDemo();
   const firstNetworkTick = useRef(true);
   const supportsVT = typeof document !== "undefined" && "startViewTransition" in document;
@@ -177,6 +181,8 @@ export default function App() {
           padding: "calc(var(--safe-top) + 16px) 16px 14px",
         }}
       >
+        {/* The active board's name is the page title — "My Snaps" for the
+            board everyone starts with, the custom name for the rest. */}
         <h1
           style={{
             margin: 0,
@@ -184,10 +190,13 @@ export default function App() {
             fontWeight: 700,
             letterSpacing: -0.2,
             whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "42vw",
             flexShrink: 0,
           }}
         >
-          Snaps
+          {activeBoard.name}
         </h1>
         <OverallProgress />
         <button
@@ -219,18 +228,20 @@ export default function App() {
         activeId={selectedId}
       />
 
-      {/* Photo-hunt helper FAB (Croatian flag). Only on the home grid —
-          hidden whenever a color detail, settings, the intro, or the tour
-          owns the screen. */}
-      <PhotoHunt
+      {/* Board manager FAB. Only on the home grid — hidden whenever a
+          color detail, settings, the intro, or the tour owns the screen. */}
+      <BoardsFab
         visible={
           !selected &&
           !settingsOpen &&
+          !boardsOpen &&
           !introOpen &&
           !demo.running &&
           sharedFiles.length === 0
         }
+        onOpen={() => setBoardsOpen(true)}
       />
+      <BoardsSheet open={boardsOpen} onClose={() => setBoardsOpen(false)} />
 
       {/* Detail overlays the home and morphs from the tapped tile.
           Plain conditional (no AnimatePresence): each transition through
