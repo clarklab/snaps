@@ -56,13 +56,29 @@ export function Thumbnail({
     setUrl(null);
     setLoaded(false);
 
-    getPhoto(photoId).then((rec) => {
-      if (!rec || !alive) return;
-      const blob = variant === "full" ? rec.full : rec.thumb;
-      objectUrl = URL.createObjectURL(blob);
-      setUrl(objectUrl);
-      if (rec.width && rec.height) setNatural({ w: rec.width, h: rec.height });
-    });
+    // Read with retries: a transient IndexedDB hiccup (connection being
+    // re-established after another tab's upgrade, the iOS "empty right after
+    // launch" quirk) must degrade to "try again shortly", never to a
+    // permanently blank tile. If the photo still can't be read we leave the
+    // tinted placeholder — deciding a photo is truly gone is the store's
+    // reconcile pass's job, never the renderer's.
+    (async () => {
+      for (let attempt = 0; attempt < 4 && alive; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 250 * 2 ** (attempt - 1)));
+          if (!alive) return;
+        }
+        const rec = await getPhoto(photoId).catch(() => undefined);
+        if (!alive) return;
+        if (!rec) continue;
+        const blob = variant === "full" ? rec.full : rec.thumb;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+        if (rec.width && rec.height)
+          setNatural({ w: rec.width, h: rec.height });
+        return;
+      }
+    })();
 
     return () => {
       alive = false;

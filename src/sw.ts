@@ -55,6 +55,34 @@ registerRoute(
   }),
 );
 
+// Wedged-IndexedDB rescue (see watchForWedge in lib/db.ts). A window stuck
+// behind a blocked connection queue asks us to reload every *other* window:
+// any stale-build window holding the old database connection gets replaced
+// with fresh code that releases it, which un-wedges the sender on its own.
+// Rate-limited so two wedged windows can't ping-pong reloads.
+let lastStaleRefresh = 0;
+self.addEventListener("message", (event: ExtendableMessageEvent) => {
+  const data = event.data as { type?: string } | null;
+  if (data?.type !== "snaps:refresh-stale-clients") return;
+  const now = Date.now();
+  if (now - lastStaleRefresh < 10_000) return;
+  lastStaleRefresh = now;
+  event.waitUntil(
+    (async () => {
+      const senderId = (event.source as Client | null)?.id;
+      const wins = await self.clients.matchAll({ type: "window" });
+      for (const client of wins) {
+        if (client.id === senderId) continue;
+        try {
+          await (client as WindowClient).navigate(client.url);
+        } catch {
+          /* uncontrollable client — skip */
+        }
+      }
+    })(),
+  );
+});
+
 /**
  * Metadata the app needs to rebuild each shared File from its cached bytes.
  */

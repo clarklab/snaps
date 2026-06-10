@@ -53,13 +53,15 @@ export function PhotoViewer({
     let alive = true;
     setRecord(null);
     setMeta(null);
-    getPhoto(photoId).then((rec) => {
-      if (!alive || !rec) return;
-      setRecord(rec);
-      void readExif(rec.full).then((m) => {
-        if (alive) setMeta(m);
+    getPhoto(photoId)
+      .catch(() => undefined)
+      .then((rec) => {
+        if (!alive || !rec) return;
+        setRecord(rec);
+        void readExif(rec.full).then((m) => {
+          if (alive) setMeta(m);
+        });
       });
-    });
     return () => {
       alive = false;
     };
