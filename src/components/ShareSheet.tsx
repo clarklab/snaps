@@ -205,6 +205,9 @@ function BoardPreview({
 
   // Mosaic preview uses CSS grid template-areas, mirroring ColorDetail's
   // render path so what the user sees here matches the baked output.
+  // The grid must fill the 3:4 frame exactly: without a definite height,
+  // `1fr` rows expand to the thumbnails' intrinsic heights and the mosaic
+  // overflows the frame, so the preview shows only its clipped top.
   const gridStyle: React.CSSProperties = mosaic
     ? {
         display: "grid",
@@ -212,6 +215,8 @@ function BoardPreview({
         gridTemplateRows: "repeat(4, 1fr)",
         gridTemplateAreas: mosaic.areas.join(" "),
         gap,
+        width: "100%",
+        height: "100%",
       }
     : {
         display: "grid",
