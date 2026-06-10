@@ -1,9 +1,12 @@
 import { motion } from "framer-motion";
-import { useMemo, useState } from "react";
-import { COLORS, SLOTS_PER_BOARD } from "../colors";
+import { useEffect, useMemo, useState } from "react";
+import { COLORS, SLOTS_PER_BOARD, swatch, wash } from "../colors";
+import { getPhoto } from "../lib/db";
 import { haptic } from "../lib/haptics";
 import { cleanBoardName, useBoards } from "../state/boards";
-import { filledCountForBoardId, useStore } from "../state/store";
+import { peekBoardLayout, useStore } from "../state/store";
+import { useTheme } from "../state/theme";
+import { PhotoHuntCard } from "./PhotoHunt";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
 
@@ -11,10 +14,13 @@ import { useToast } from "./Toast";
  * Board manager — the FAB on the home grid plus the bottom sheet it opens.
  *
  * The sheet lists every board (each one a full nine-color hunt with its own
- * photos), lets you hop between them, and creates new ones with a custom
+ * photos) with a miniature of all 81 slots so you can tell them apart at a
+ * glance, lets you hop between them, and creates new ones with a custom
  * name. Switching never moves or removes anything: each board's layout
  * lives under its own storage keys and the photos all stay on the device.
  */
+
+type BoardLayout = Record<string, (string | null)[]>;
 
 const SHEET_CLOSE_MS = 240;
 
@@ -31,7 +37,7 @@ export function BoardsFab({
         haptic("select");
         onOpen();
       }}
-      aria-label="Your boards — switch boards or start a new one"
+      aria-label="My Boards — switch boards or start a new one"
       initial={false}
       animate={{
         opacity: visible ? 1 : 0,
@@ -72,23 +78,37 @@ export function BoardsSheet({
   const store = useStore();
   const toast = useToast();
   const [draftName, setDraftName] = useState("");
+  const [huntOpen, setHuntOpen] = useState(false);
   const totalSlots = COLORS.length * SLOTS_PER_BOARD;
 
-  // Photo counts per board: the active board from the live store, the rest
-  // peeked read-only from their storage keys whenever the sheet opens.
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    if (!open) return m;
+  // Thumbnails are only worth fetching once the sheet has actually been
+  // opened — the sheet element itself is always mounted (it animates via
+  // the `open` prop), and the app's launch shouldn't pay for preview reads.
+  const [hasOpened, setHasOpened] = useState(false);
+  useEffect(() => {
+    if (open) setHasOpened(true);
+  }, [open]);
+
+  // Slot layout per board: the active board live from the store, the rest
+  // peeked read-only from their storage keys.
+  const layouts = useMemo(() => {
+    const m = new Map<string, BoardLayout>();
     for (const b of boards) {
       m.set(
         b.id,
-        b.id === activeBoardId
-          ? store.totalFilled
-          : filledCountForBoardId(b.id),
+        b.id === activeBoardId ? store.boards : peekBoardLayout(b.id),
       );
     }
     return m;
-  }, [open, boards, activeBoardId, store.totalFilled]);
+  }, [boards, activeBoardId, store.boards]);
+
+  const filledCount = (layout: BoardLayout | undefined): number =>
+    layout
+      ? Object.values(layout).reduce(
+          (n, slots) => n + slots.filter(Boolean).length,
+          0,
+        )
+      : 0;
 
   const choose = (id: string, name: string) => {
     if (id === activeBoardId) {
@@ -142,7 +162,7 @@ export function BoardsSheet({
           }}
         >
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
-            Your boards
+            My Boards
           </h2>
           <button
             onClick={onClose}
@@ -155,7 +175,8 @@ export function BoardsSheet({
         <div style={{ display: "grid", gap: 8 }}>
           {boards.map((b) => {
             const active = b.id === activeBoardId;
-            const filled = counts.get(b.id) ?? 0;
+            const layout = layouts.get(b.id);
+            const filled = filledCount(layout);
             return (
               <button
                 key={b.id}
@@ -165,7 +186,7 @@ export function BoardsSheet({
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  padding: "13px 14px",
+                  padding: "11px 12px",
                   borderRadius: 14,
                   textAlign: "left",
                   background: active
@@ -176,6 +197,7 @@ export function BoardsSheet({
                   }`,
                 }}
               >
+                {layout && <BoardMini layout={layout} load={hasOpened} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
@@ -272,8 +294,149 @@ export function BoardsSheet({
           Every board is its own nine-color hunt. Photos stay on this device,
           and switching boards never removes anything.
         </p>
+
+        {/* The out-in-the-field language helper, one tap from the FAB like
+            it used to be. */}
+        <button
+          onClick={() => {
+            haptic("select");
+            setHuntOpen(true);
+          }}
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: 14,
+            padding: "12px 12px",
+            borderRadius: 12,
+            background: "var(--fill-quaternary)",
+            fontSize: 14.5,
+            fontWeight: 600,
+            color: "var(--accent)",
+            textAlign: "center",
+          }}
+        >
+          🇭🇷 Ask to take someone's picture
+        </button>
       </div>
+
+      {/* Full-screen, above the sheet (its z-index outranks the scrim, and
+          the card swallows pointer events so the sheet's drag-to-dismiss
+          never grabs gestures made on it). */}
+      <PhotoHuntCard open={huntOpen} onClose={() => setHuntOpen(false)} />
     </Sheet>
+  );
+}
+
+/**
+ * A miniature of one board: all 81 slots as a 9×9 grid — the nine color
+ * blocks in their home-grid arrangement, each holding its nine slots.
+ * Filled slots show the photo's thumbnail; empty slots show the color's
+ * wash, so even an empty board reads as a tiny rainbow.
+ */
+function BoardMini({ layout, load }: { layout: BoardLayout; load: boolean }) {
+  const { scheme } = useTheme();
+
+  // The photo ids this mini needs, in a stable key so a re-peeked (but
+  // unchanged) layout object doesn't churn object URLs.
+  const ids = useMemo(
+    () =>
+      COLORS.flatMap((c) => layout[c.id] ?? []).filter(
+        (x): x is string => typeof x === "string",
+      ),
+    [layout],
+  );
+  const idsKey = ids.join(",");
+
+  const [urls, setUrls] = useState<ReadonlyMap<string, string>>(new Map());
+  useEffect(() => {
+    if (!load || ids.length === 0) {
+      setUrls(new Map());
+      return;
+    }
+    let alive = true;
+    const created: string[] = [];
+    void (async () => {
+      const next = new Map<string, string>();
+      await Promise.all(
+        ids.map(async (id) => {
+          const rec = await getPhoto(id).catch(() => undefined);
+          if (!rec) return;
+          const url = URL.createObjectURL(rec.thumb);
+          created.push(url);
+          next.set(id, url);
+        }),
+      );
+      if (alive) setUrls(next);
+    })();
+    return () => {
+      alive = false;
+      for (const url of created) URL.revokeObjectURL(url);
+    };
+    // idsKey is the stable identity of `ids`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, idsKey]);
+
+  // 9×9 cells: color block (3×3 of blocks) × slot within block (3×3).
+  const cells: { key: string; url?: string; tint: string }[] = [];
+  COLORS.forEach((color) => {
+    const slots = layout[color.id] ?? [];
+    const tint = wash(swatch(color, scheme), scheme);
+    for (let si = 0; si < SLOTS_PER_BOARD; si++) {
+      const id = slots[si];
+      cells.push({
+        key: `${color.id}-${si}`,
+        url: id ? urls.get(id) : undefined,
+        tint,
+      });
+    }
+  });
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(9, 7px)",
+        gridTemplateRows: "repeat(9, 7px)",
+        borderRadius: 8,
+        overflow: "hidden",
+        flexShrink: 0,
+        background: "var(--fill-quaternary)",
+      }}
+    >
+      {cells.map((cell, i) => {
+        // Index within the color block and which block it belongs to.
+        const ci = Math.floor(i / SLOTS_PER_BOARD);
+        const si = i % SLOTS_PER_BOARD;
+        const row = Math.floor(ci / 3) * 3 + Math.floor(si / 3) + 1;
+        const col = (ci % 3) * 3 + (si % 3) + 1;
+        return cell.url ? (
+          <img
+            key={cell.key}
+            src={cell.url}
+            alt=""
+            draggable={false}
+            style={{
+              gridRow: row,
+              gridColumn: col,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        ) : (
+          <div
+            key={cell.key}
+            style={{
+              gridRow: row,
+              gridColumn: col,
+              background: cell.tint,
+            }}
+          />
+        );
+      })}
+    </div>
   );
 }
 

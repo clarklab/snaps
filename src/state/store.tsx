@@ -171,11 +171,14 @@ function countFilled(boards: Boards): number {
 }
 
 /**
- * Read-only peek at any board's photo count straight from localStorage, for
- * the boards list UI. Inactive boards have no live store; this never writes.
+ * Read-only peek at any board's slot layout straight from localStorage, for
+ * the boards list UI (mini previews + photo counts). Inactive boards have no
+ * live store; this never writes.
  */
-export function filledCountForBoardId(boardId: string): number {
-  return countFilled(loadBoards(STORAGE_KEY + boardKeySuffix(boardId)));
+export function peekBoardLayout(
+  boardId: string,
+): Record<string, (string | null)[]> {
+  return loadBoards(STORAGE_KEY + boardKeySuffix(boardId));
 }
 
 /**
