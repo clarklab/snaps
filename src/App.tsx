@@ -143,6 +143,25 @@ export default function App() {
     };
   }, [toast]);
 
+  // Photo storage wedged behind another window's database lock (lib/db.ts
+  // dispatches this after it has already asked the service worker to reload
+  // stale windows). Photos are safe on the device; reads will complete the
+  // moment the lock clears, so guide the user in case the automatic nudge
+  // isn't enough.
+  useEffect(() => {
+    const onWedged = () => {
+      toast.push({
+        title: "Waiting for your photos",
+        detail:
+          "Another open Snaps window is holding the photo storage. Close other Snaps tabs or windows and your photos will appear — nothing is lost.",
+        tone: "warn",
+        timeout: 8000,
+      });
+    };
+    window.addEventListener("snaps:db-wedged", onWedged);
+    return () => window.removeEventListener("snaps:db-wedged", onWedged);
+  }, [toast]);
+
   const openColor = (id: string) =>
     startTransition(() => setSelectedId(id));
   const closeColor = () => startTransition(() => setSelectedId(null));

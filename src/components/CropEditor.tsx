@@ -54,12 +54,15 @@ export function CropEditor({
   useEffect(() => {
     let alive = true;
     let objectUrl: string | null = null;
-    getPhoto(photoId).then((rec) => {
-      if (!rec || !alive) return;
-      objectUrl = URL.createObjectURL(rec.full);
-      setUrl(objectUrl);
-      if (rec.width && rec.height) setNatural({ w: rec.width, h: rec.height });
-    });
+    getPhoto(photoId)
+      .catch(() => undefined)
+      .then((rec) => {
+        if (!rec || !alive) return;
+        objectUrl = URL.createObjectURL(rec.full);
+        setUrl(objectUrl);
+        if (rec.width && rec.height)
+          setNatural({ w: rec.width, h: rec.height });
+      });
     return () => {
       alive = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
