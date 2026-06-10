@@ -3,6 +3,12 @@ import { COLORS } from "../colors";
 import { haptic } from "../lib/haptics";
 import { cleanBoardName, useBoards } from "../state/boards";
 import { useStore } from "../state/store";
+import {
+  MenuFootnote,
+  MenuGroup,
+  MenuRow,
+  SectionLabel,
+} from "./MenuKit";
 import { Sheet } from "./Sheet";
 
 /**
@@ -50,7 +56,7 @@ export function Settings({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 18,
+            marginBottom: 14,
           }}
         >
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
@@ -64,152 +70,88 @@ export function Settings({
           </button>
         </div>
 
-        <SectionLabel>Name</SectionLabel>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveName();
-            }}
-            maxLength={40}
-            enterKeyHint="done"
-            aria-label="Board name"
+        <SectionLabel first>Name</SectionLabel>
+        <MenuGroup>
+          <div
             style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "11px 13px",
-              borderRadius: 12,
-              border: "1.5px solid var(--separator)",
-              background: "var(--bg)",
-              color: "var(--label)",
-              fontSize: 16,
-            }}
-          />
-          <button
-            onClick={saveName}
-            disabled={!dirty}
-            style={{
-              padding: "0 16px",
-              borderRadius: 12,
-              fontSize: 15,
-              fontWeight: 700,
-              background: dirty ? "var(--accent)" : "var(--fill-quaternary)",
-              color: dirty ? "#fff" : "var(--label-tertiary)",
-              transition: "background 0.15s ease, color 0.15s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "3px 6px 3px 14px",
             }}
           >
-            Save
-          </button>
-        </div>
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+              }}
+              maxLength={40}
+              enterKeyHint="done"
+              aria-label="Board name"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "10px 0",
+                border: "none",
+                background: "transparent",
+                color: "var(--label)",
+                fontSize: 16,
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={saveName}
+              disabled={!dirty}
+              style={{
+                padding: "10px 10px",
+                fontSize: 15.5,
+                fontWeight: 650,
+                background: "transparent",
+                color: dirty ? "var(--accent)" : "var(--label-tertiary)",
+                transition: "color 0.15s ease",
+                flexShrink: 0,
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </MenuGroup>
 
-        <SectionLabel style={{ marginTop: 22 }}>Progress</SectionLabel>
-        <Row
-          label="Photos placed"
-          value={`${store.totalFilled} of ${store.totalSlots}`}
-        />
-        <Row
-          label="Colors complete"
-          value={`${store.completedColors} of ${COLORS.length}`}
-        />
+        <SectionLabel>Progress</SectionLabel>
+        <MenuGroup>
+          <MenuRow
+            label="Photos placed"
+            detail={`${store.totalFilled} of ${store.totalSlots}`}
+          />
+          <MenuRow
+            label="Colors complete"
+            detail={`${store.completedColors} of ${COLORS.length}`}
+          />
+        </MenuGroup>
 
         {/* Sample photos that were loaded onto THIS board (normally only the
             demo board ever has them). Removing them never touches the
             photos you added yourself. */}
         {store.hasSamples && (
           <>
-            <SectionLabel style={{ marginTop: 22 }}>
-              Sample Photos
-            </SectionLabel>
-            <SmallButton destructive onClick={handleClearSamples}>
-              Remove {store.sampleCount} sample photo
-              {store.sampleCount === 1 ? "" : "s"}
-            </SmallButton>
-            <p
-              style={{
-                fontSize: 12.5,
-                lineHeight: 1.45,
-                color: "var(--label-secondary)",
-                margin: "10px 2px 0",
-              }}
-            >
+            <SectionLabel>Sample Photos</SectionLabel>
+            <MenuGroup>
+              <MenuRow
+                destructive
+                label={`Remove ${store.sampleCount} sample photo${
+                  store.sampleCount === 1 ? "" : "s"
+                }`}
+                onClick={handleClearSamples}
+              />
+            </MenuGroup>
+            <MenuFootnote>
               Only the loaded examples are removed — photos you added
               yourself stay put.
-            </p>
+            </MenuFootnote>
           </>
         )}
       </div>
     </Sheet>
-  );
-}
-
-function SectionLabel({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: "var(--label-secondary)",
-        textTransform: "uppercase",
-        letterSpacing: 0.4,
-        margin: "0 2px 8px",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Compact full-width action button. */
-function SmallButton({
-  children,
-  onClick,
-  destructive,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "block",
-        width: "100%",
-        padding: "12px 12px",
-        borderRadius: 12,
-        background: "var(--fill-quaternary)",
-        fontSize: 14.5,
-        fontWeight: 600,
-        color: destructive ? "#ff453a" : "var(--accent)",
-        textAlign: "center",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        padding: "11px 2px",
-        borderBottom: "1px solid var(--separator)",
-        fontSize: 15,
-      }}
-    >
-      <span>{label}</span>
-      <span style={{ color: "var(--label-secondary)" }}>{value}</span>
-    </div>
   );
 }

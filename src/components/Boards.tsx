@@ -18,6 +18,14 @@ import {
 } from "../state/store";
 import { useSampleLoader } from "../state/useSampleLoader";
 import { useTheme, type AppearanceMode } from "../state/theme";
+import {
+  Checkmark,
+  Chevron,
+  MenuFootnote,
+  MenuGroup,
+  MenuRow,
+  SectionLabel,
+} from "./MenuKit";
 import { PhotoHuntCard } from "./PhotoHunt";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
@@ -37,6 +45,10 @@ import { useToast } from "./Toast";
  * Demos play on a dedicated, disposable demo board (never inside a user's
  * board): launching hops there, the tour hops back when it ends, and the
  * board itself disappears once it's empty.
+ *
+ * Visually everything is grouped into inset cards (see MenuKit) so the
+ * sheet reads as a handful of labeled sections rather than a wall of
+ * controls.
  */
 
 type BoardLayout = Record<string, (string | null)[]>;
@@ -317,11 +329,13 @@ export function BoardsSheet({
           </button>
         </div>
 
-        <div style={{ display: "grid", gap: 8 }}>
+        {/* Boards: one card, one row per board, checkmark on the current
+            one. The divider starts where the text starts (after the mini)
+            so the minis read as one calm column. */}
+        <MenuGroup dividerInset={87}>
           {boards.map((b) => {
             const active = b.id === activeBoardId;
             const layout = layouts.get(b.id);
-            const filled = filledCount(layout);
             return (
               <button
                 key={b.id}
@@ -331,15 +345,10 @@ export function BoardsSheet({
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  padding: "11px 12px",
-                  borderRadius: 14,
+                  width: "100%",
+                  padding: "10px 14px 10px 12px",
                   textAlign: "left",
-                  background: active
-                    ? "var(--fill-quaternary)"
-                    : "transparent",
-                  border: `1.5px solid ${
-                    active ? "var(--accent)" : "var(--separator)"
-                  }`,
+                  background: "transparent",
                 }}
               >
                 {layout && <BoardMini layout={layout} load={hasOpened} />}
@@ -363,109 +372,83 @@ export function BoardsSheet({
                       color: "var(--label-secondary)",
                     }}
                   >
-                    {filled} of {totalSlots} photos
+                    {filledCount(layout)} of {totalSlots} photos
                   </div>
                 </div>
-                {active && (
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "var(--accent)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    Current
-                  </span>
-                )}
+                {active && <Checkmark />}
               </button>
             );
           })}
-        </div>
+        </MenuGroup>
 
-        {/* New board: name it, get a fresh nine-color hunt. */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginTop: 14,
-          }}
-        >
-          <input
-            value={draftName}
-            onChange={(e) => setDraftName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") create();
-            }}
-            placeholder="Name a new board…"
-            maxLength={40}
-            enterKeyHint="done"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "12px 14px",
-              borderRadius: 12,
-              border: "1.5px solid var(--separator)",
-              background: "var(--bg)",
-              color: "var(--label)",
-              fontSize: 16,
-            }}
-          />
-          <button
-            onClick={create}
-            disabled={!canCreate}
-            style={{
-              padding: "0 18px",
-              borderRadius: 12,
-              fontSize: 15,
-              fontWeight: 700,
-              background: canCreate ? "var(--accent)" : "var(--fill-quaternary)",
-              color: canCreate ? "#fff" : "var(--label-tertiary)",
-              transition: "background 0.15s ease, color 0.15s ease",
-            }}
-          >
-            Create
-          </button>
+        {/* New board: its own slim card right under the list. */}
+        <div style={{ marginTop: 8 }}>
+          <MenuGroup>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 6px 3px 14px",
+              }}
+            >
+              <input
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") create();
+                }}
+                placeholder="Name a new board…"
+                maxLength={40}
+                enterKeyHint="done"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: "10px 0",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--label)",
+                  fontSize: 16,
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={create}
+                disabled={!canCreate}
+                style={{
+                  padding: "10px 10px",
+                  fontSize: 15.5,
+                  fontWeight: 650,
+                  background: "transparent",
+                  color: canCreate ? "var(--accent)" : "var(--label-tertiary)",
+                  transition: "color 0.15s ease",
+                  flexShrink: 0,
+                }}
+              >
+                Create
+              </button>
+            </div>
+          </MenuGroup>
         </div>
-
-        <p
-          style={{
-            fontSize: 12.5,
-            lineHeight: 1.45,
-            color: "var(--label-secondary)",
-            margin: "12px 2px 0",
-          }}
-        >
+        <MenuFootnote>
           Every board is its own nine-color hunt. Photos stay on this device,
           and switching boards never removes anything.
-        </p>
+        </MenuFootnote>
 
-        {/* The out-in-the-field language helper, one tap from the FAB like
-            it used to be. */}
-        <button
-          onClick={() => {
-            haptic("select");
-            setHuntOpen(true);
-          }}
-          style={{
-            display: "block",
-            width: "100%",
-            marginTop: 14,
-            padding: "12px 12px",
-            borderRadius: 12,
-            background: "var(--fill-quaternary)",
-            fontSize: 14.5,
-            fontWeight: 600,
-            color: "var(--accent)",
-            textAlign: "center",
-          }}
-        >
-          🇭🇷 Ask to take someone's picture
-        </button>
+        <SectionLabel>Photo Hunt</SectionLabel>
+        <MenuGroup>
+          <MenuRow
+            leading={<span style={{ fontSize: 17 }}>🇭🇷</span>}
+            label="Ask to take someone's picture"
+            onClick={() => {
+              haptic("select");
+              setHuntOpen(true);
+            }}
+            trailing={<Chevron />}
+          />
+        </MenuGroup>
 
-        {/* Global settings from here down — they apply to the whole app,
-            which is why they live in this menu and not in any board. */}
-        <SectionLabel style={{ marginTop: 22 }}>Appearance</SectionLabel>
+        <SectionLabel>Appearance</SectionLabel>
         <div
           style={{
             display: "grid",
@@ -498,57 +481,40 @@ export function BoardsSheet({
           })}
         </div>
 
-        <SectionLabel style={{ marginTop: 22 }}>Demo</SectionLabel>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: demoAvailable ? "1fr 1fr" : "1fr",
-            gap: 8,
-          }}
-        >
-          <MenuButton
+        <SectionLabel>Demo</SectionLabel>
+        <MenuGroup>
+          {demoAvailable && (
+            <MenuRow label="Watch the tour" onClick={() => runDemo("tour")} />
+          )}
+          {demoAvailable && (
+            <MenuRow
+              label="Load sample photos"
+              onClick={() => runDemo("samples")}
+            />
+          )}
+          <MenuRow
+            label="Replay intro"
             onClick={() => {
               haptic("select");
               onReplayIntro();
             }}
-          >
-            Replay intro
-          </MenuButton>
-          {demoAvailable && (
-            <MenuButton onClick={() => runDemo("tour")}>
-              Watch the tour
-            </MenuButton>
-          )}
-          {demoAvailable && (
-            <MenuButton onClick={() => runDemo("samples")}>
-              Load sample photos
-            </MenuButton>
-          )}
+          />
           {demoBoardExists && (
-            <MenuButton destructive onClick={clearDemo}>
-              Clear demo board
-            </MenuButton>
+            <MenuRow label="Clear demo board" destructive onClick={clearDemo} />
           )}
-        </div>
-        <p
-          style={{
-            fontSize: 12.5,
-            lineHeight: 1.45,
-            color: "var(--label-secondary)",
-            margin: "10px 2px 0",
-          }}
-        >
+        </MenuGroup>
+        <MenuFootnote>
           The tour and sample photos play on their own demo board — your
           boards are never touched, and the demo board disappears once it's
           cleared.
-        </p>
+        </MenuFootnote>
 
         <p
           style={{
             textAlign: "center",
             fontSize: 12.5,
             color: "var(--label-tertiary)",
-            marginTop: 22,
+            marginTop: 24,
             marginBottom: 0,
             lineHeight: 1.5,
           }}
@@ -565,60 +531,6 @@ export function BoardsSheet({
           never grabs gestures made on it). */}
       <PhotoHuntCard open={huntOpen} onClose={() => setHuntOpen(false)} />
     </Sheet>
-  );
-}
-
-function SectionLabel({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: "var(--label-secondary)",
-        textTransform: "uppercase",
-        letterSpacing: 0.4,
-        margin: "0 2px 8px",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Compact menu action button (matches the board-settings style). */
-function MenuButton({
-  children,
-  onClick,
-  destructive,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "block",
-        width: "100%",
-        padding: "12px 12px",
-        borderRadius: 12,
-        background: "var(--fill-quaternary)",
-        fontSize: 14.5,
-        fontWeight: 600,
-        color: destructive ? "#ff453a" : "var(--accent)",
-        textAlign: "center",
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
