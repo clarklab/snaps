@@ -21,8 +21,13 @@ import {
 } from "../lib/db";
 import { processImage } from "../lib/image";
 import { type Crop, isIdentityCrop } from "../lib/crop";
-import { safeGet, safeSet, setStorageErrorHandler } from "../lib/safeStorage";
-import { boardKeySuffix, DEFAULT_BOARD_ID } from "./boards";
+import {
+  safeGet,
+  safeRemove,
+  safeSet,
+  setStorageErrorHandler,
+} from "../lib/safeStorage";
+import { boardKeySuffix, DEFAULT_BOARD_ID, DEMO_BOARD_ID } from "./boards";
 
 /** colorId -> array of SLOTS_PER_BOARD photo ids (or null). */
 type Boards = Record<string, (string | null)[]>;
@@ -171,6 +176,27 @@ function countFilled(boards: Boards): number {
 }
 
 /**
+ * Whether any persisted board layout references this photo. Used by the
+ * post-add janitor below. Errors count as "yes" — when storage can't be
+ * read we must never conclude a photo is orphaned.
+ */
+function storedLayoutsContain(photoId: string): boolean {
+  try {
+    const needle = `"${photoId}"`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key !== STORAGE_KEY && !key.startsWith(`${STORAGE_KEY}.`)) continue;
+      const raw = localStorage.getItem(key);
+      if (raw && raw.includes(needle)) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Read-only peek at any board's slot layout straight from localStorage, for
  * the boards list UI (mini previews + photo counts). Inactive boards have no
  * live store; this never writes.
@@ -179,6 +205,41 @@ export function peekBoardLayout(
   boardId: string,
 ): Record<string, (string | null)[]> {
   return loadBoards(STORAGE_KEY + boardKeySuffix(boardId));
+}
+
+/**
+ * Delete the demo board's contents: its photos from IndexedDB, its layout /
+ * crop / sample keys from localStorage, and its durable layout backup.
+ *
+ * This is deliberately HARD-WIRED to the demo board — it takes no board id,
+ * so no code path can ever aim it at a user's board. Callers must make sure
+ * the demo board isn't the live (mounted) store when this runs, and remove
+ * it from the registry afterwards (useBoards().removeDemoBoard).
+ */
+export async function clearDemoBoardData(): Promise<void> {
+  const suffix = boardKeySuffix(DEMO_BOARD_ID);
+  const layout = loadBoards(STORAGE_KEY + suffix);
+  const ids = new Set<string>();
+  for (const slots of Object.values(layout)) {
+    for (const id of slots) if (id) ids.add(id);
+  }
+  await Promise.all(
+    [...ids].map((id) => deletePhoto(id).catch(() => {})),
+  );
+  safeRemove(STORAGE_KEY + suffix);
+  safeRemove(SAMPLE_KEY + suffix);
+  safeRemove(CROP_KEY + suffix);
+  // Neutralize the durable backup too. (Even a stale one would be harmless:
+  // restores only re-attach photos that still exist in IndexedDB, and these
+  // were just deleted — but don't leave it lying around.)
+  const empty: LayoutBackup = {
+    v: BACKUP_VERSION,
+    savedAt: Date.now(),
+    boards: emptyBoards(),
+    crops: {},
+    sampleIds: [],
+  };
+  await putMeta(BACKUP_META_KEY + suffix, empty).catch(() => {});
 }
 
 /**
@@ -268,6 +329,21 @@ export function StoreProvider({
   // Keep a ref so async seeders read the latest sample set without re-binding.
   const sampleRef = useRef(sampleIds);
   sampleRef.current = sampleIds;
+  // Mirror of `boards` for the post-add janitor (read inside timeouts).
+  const boardsRef = useRef(boards);
+  boardsRef.current = boards;
+
+  // Whether this provider is still the live store. Once the board switches
+  // away (keyed remount) every pending setState here is silently dropped —
+  // so an addPhoto that crosses the unmount would write bytes that no
+  // layout will ever reference. addPhoto checks this and compensates.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Surface localStorage write failures (Safari private mode, quota) once.
   const storageToastShown = useRef(false);
@@ -439,6 +515,9 @@ export function StoreProvider({
 
   const addPhoto = useCallback(
     async (colorId: string, slot: number, file: Blob, opts?: { sample?: boolean }) => {
+      if (!mountedRef.current) {
+        throw new Error("Board is no longer active");
+      }
       const processed = await processImage(file);
       const id =
         crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36)}`;
@@ -466,6 +545,14 @@ export function StoreProvider({
         throw err;
       }
 
+      // If the board switched away while the bytes were being written, the
+      // setBoards below would be dropped and the record would be orphaned —
+      // take it back out and tell the caller.
+      if (!mountedRef.current) {
+        void deletePhoto(id);
+        throw new Error("Board closed while saving");
+      }
+
       // First successful save → best-effort persistent-storage request.
       void requestPersistentStorage();
 
@@ -483,6 +570,25 @@ export function StoreProvider({
         }
         return { ...prev, [colorId]: board };
       });
+
+      // Janitor: the setBoards above is only *queued* — if this provider
+      // unmounts before React commits it (board switched away mid-add, e.g.
+      // a demo cascade interrupted by "Clear demo board"), the update is
+      // silently dropped and the stored bytes would be referenced by no
+      // layout, ever. Verify shortly after the dust settles and take the
+      // photo back out if nothing references it. Both checks err toward
+      // keeping: a live in-memory reference (covers blocked localStorage,
+      // e.g. private mode) or any persisted layout reference wins.
+      window.setTimeout(() => {
+        if (
+          mountedRef.current &&
+          Object.values(boardsRef.current).some((slots) => slots.includes(id))
+        ) {
+          return;
+        }
+        if (storedLayoutsContain(id)) return;
+        void deletePhoto(id);
+      }, 2000);
 
       // Hand back the new id so callers can immediately act on it (e.g. open
       // the crop editor on a freshly-shared photo).

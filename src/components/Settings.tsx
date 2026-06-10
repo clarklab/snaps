@@ -1,58 +1,40 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../colors";
-import { estimateUsage } from "../lib/db";
 import { haptic } from "../lib/haptics";
-import { useSampleLoader } from "../state/useSampleLoader";
+import { cleanBoardName, useBoards } from "../state/boards";
 import { useStore } from "../state/store";
-import { useTheme, type AppearanceMode } from "../state/theme";
-import { PhotoHuntCard } from "./PhotoHunt";
-import { ProgressBar } from "./Progress";
 import { Sheet } from "./Sheet";
 
-const MODES: { id: AppearanceMode; label: string }[] = [
-  { id: "system", label: "System" },
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-];
-
+/**
+ * Board settings — everything in here is about the board you're currently
+ * on, and nothing else. Global concerns (appearance, demos, storage, the
+ * language helper) live in the My Boards menu on the home-grid FAB, so a
+ * change made here can never reach across boards and a global toggle can
+ * never look like it "belongs" to one board.
+ */
 export function Settings({
   open,
   onClose,
-  onReplayIntro,
 }: {
   open: boolean;
   onClose: () => void;
-  /** Reopen the watercolor intro overlay; the App owns the visible state. */
-  onReplayIntro: () => void;
 }) {
-  const { mode, setMode } = useTheme();
   const store = useStore();
-  const [usage, setUsage] = useState<string | null>(null);
-  // The ask-permission language card (used to live on the home-grid FAB,
-  // which now belongs to the board manager). Renders above this sheet.
-  const [huntOpen, setHuntOpen] = useState(false);
+  const { activeBoard, renameBoard } = useBoards();
 
-  const {
-    available: samplesAvailable,
-    seeding,
-    progress,
-    note,
-    load,
-  } = useSampleLoader();
-
+  // Local draft of the board name; saved on demand, re-synced whenever the
+  // sheet opens (or the board itself changes underneath us).
+  const [draft, setDraft] = useState(activeBoard.name);
   useEffect(() => {
-    if (!open) return;
-    estimateUsage().then((bytes) => {
-      if (bytes == null) return setUsage(null);
-      const mb = bytes / (1024 * 1024);
-      setUsage(mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`);
-    });
-  }, [open]);
+    if (open) setDraft(activeBoard.name);
+  }, [open, activeBoard.name]);
 
-  const handleLoadSamples = async () => {
+  const cleaned = cleanBoardName(draft);
+  const dirty = cleaned.length > 0 && cleaned !== activeBoard.name;
+  const saveName = () => {
+    if (!dirty) return;
     haptic("select");
-    const placed = await load();
-    if (placed) haptic("success");
+    renameBoard(activeBoard.id, cleaned);
   };
 
   const handleClearSamples = () => {
@@ -71,7 +53,9 @@ export function Settings({
             marginBottom: 18,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Settings</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+            Board Settings
+          </h2>
           <button
             onClick={onClose}
             style={{ fontSize: 17, fontWeight: 600, color: "var(--accent)" }}
@@ -80,37 +64,43 @@ export function Settings({
           </button>
         </div>
 
-        <SectionLabel>Appearance</SectionLabel>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 2,
-            padding: 2,
-            background: "var(--fill-quaternary)",
-            borderRadius: 12,
-          }}
-        >
-          {MODES.map((m) => {
-            const active = mode === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => setMode(m.id)}
-                style={{
-                  padding: "9px 0",
-                  borderRadius: 10,
-                  fontSize: 15,
-                  fontWeight: active ? 600 : 500,
-                  background: active ? "var(--bg-elevated)" : "transparent",
-                  color: active ? "var(--label)" : "var(--label-secondary)",
-                  boxShadow: active ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
-                }}
-              >
-                {m.label}
-              </button>
-            );
-          })}
+        <SectionLabel>Name</SectionLabel>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveName();
+            }}
+            maxLength={40}
+            enterKeyHint="done"
+            aria-label="Board name"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "11px 13px",
+              borderRadius: 12,
+              border: "1.5px solid var(--separator)",
+              background: "var(--bg)",
+              color: "var(--label)",
+              fontSize: 16,
+            }}
+          />
+          <button
+            onClick={saveName}
+            disabled={!dirty}
+            style={{
+              padding: "0 16px",
+              borderRadius: 12,
+              fontSize: 15,
+              fontWeight: 700,
+              background: dirty ? "var(--accent)" : "var(--fill-quaternary)",
+              color: dirty ? "#fff" : "var(--label-tertiary)",
+              transition: "background 0.15s ease, color 0.15s ease",
+            }}
+          >
+            Save
+          </button>
         </div>
 
         <SectionLabel style={{ marginTop: 22 }}>Progress</SectionLabel>
@@ -123,140 +113,32 @@ export function Settings({
           value={`${store.completedColors} of ${COLORS.length}`}
         />
 
-        <SectionLabel style={{ marginTop: 22 }}>Your Photos</SectionLabel>
-        <Row label="Storage" value="On this device" />
-        <Row label="Quality" value="Original, uncompressed" />
-        {usage && <Row label="Space used" value={usage} />}
-        <p
-          style={{
-            fontSize: 12.5,
-            lineHeight: 1.45,
-            color: "var(--label-secondary)",
-            margin: "10px 2px 0",
-          }}
-        >
-          Photos never leave your device. Snaps keeps the original file
-          bytes in your browser's local storage — nothing is uploaded or
-          compressed.
-        </p>
-
-        <SectionLabel style={{ marginTop: 22 }}>Photo Hunt</SectionLabel>
-        <SmallButton
-          onClick={() => {
-            haptic("select");
-            setHuntOpen(true);
-          }}
-        >
-          🇭🇷 Show the ask-permission card
-        </SmallButton>
-        <p
-          style={{
-            fontSize: 12.5,
-            lineHeight: 1.45,
-            color: "var(--label-secondary)",
-            margin: "10px 2px 0",
-          }}
-        >
-          A big friendly card that politely asks — in Croatian and nine other
-          languages — whether you may take someone's picture.
-        </p>
-
-        {/* Demo controls live together at the bottom — replay the intro
-            and load/remove the curated sample photos. Two-up button row so
-            both actions feel equally weighted. */}
-        <SectionLabel style={{ marginTop: 24 }}>Demo</SectionLabel>
-        {seeding ? (
-          <div style={{ padding: "4px 2px 2px" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: 14,
-                marginBottom: 8,
-                color: "var(--label-secondary)",
-              }}
-            >
-              <span>Loading example photos…</span>
-              <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                {progress.done} / {progress.total || "…"}
-              </span>
-            </div>
-            <ProgressBar
-              value={progress.done}
-              total={progress.total || 1}
-              tint="var(--accent)"
-            />
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: samplesAvailable ? "1fr 1fr" : "1fr",
-              gap: 8,
-            }}
-          >
-            <SmallButton
-              onClick={() => {
-                haptic("select");
-                onReplayIntro();
-              }}
-            >
-              Replay intro
+        {/* Sample photos that were loaded onto THIS board (normally only the
+            demo board ever has them). Removing them never touches the
+            photos you added yourself. */}
+        {store.hasSamples && (
+          <>
+            <SectionLabel style={{ marginTop: 22 }}>
+              Sample Photos
+            </SectionLabel>
+            <SmallButton destructive onClick={handleClearSamples}>
+              Remove {store.sampleCount} sample photo
+              {store.sampleCount === 1 ? "" : "s"}
             </SmallButton>
-            {samplesAvailable &&
-              (store.hasSamples ? (
-                <SmallButton destructive onClick={handleClearSamples}>
-                  Remove samples
-                </SmallButton>
-              ) : (
-                <SmallButton onClick={handleLoadSamples}>
-                  Load samples
-                </SmallButton>
-              ))}
-          </div>
+            <p
+              style={{
+                fontSize: 12.5,
+                lineHeight: 1.45,
+                color: "var(--label-secondary)",
+                margin: "10px 2px 0",
+              }}
+            >
+              Only the loaded examples are removed — photos you added
+              yourself stay put.
+            </p>
+          </>
         )}
-        {samplesAvailable && !seeding && !store.hasSamples && (
-          <p
-            style={{
-              fontSize: 12.5,
-              lineHeight: 1.45,
-              color: "var(--label-secondary)",
-              margin: "10px 2px 0",
-            }}
-          >
-            Fills empty boards with curated single-color photos from Unsplash
-            so you can see what finished collages look like.
-          </p>
-        )}
-        {note && (
-          <p
-            style={{
-              fontSize: 12.5,
-              lineHeight: 1.45,
-              color: "var(--label-secondary)",
-              margin: "10px 2px 0",
-            }}
-          >
-            {note}
-          </p>
-        )}
-
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: 12.5,
-            color: "var(--label-tertiary)",
-            marginTop: 22,
-          }}
-        >
-          snaps.quest · v1.0
-        </p>
       </div>
-
-      {/* Full-screen, above the sheet (its z-index outranks the scrim, and
-          the card swallows pointer events so the sheet's drag-to-dismiss
-          never grabs gestures made on it). */}
-      <PhotoHuntCard open={huntOpen} onClose={() => setHuntOpen(false)} />
     </Sheet>
   );
 }
@@ -285,7 +167,7 @@ function SectionLabel({
   );
 }
 
-/** Compact button used in the two-up Demo row. */
+/** Compact full-width action button. */
 function SmallButton({
   children,
   onClick,

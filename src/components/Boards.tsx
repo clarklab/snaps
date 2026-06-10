@@ -1,28 +1,101 @@
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { COLORS, SLOTS_PER_BOARD, swatch, wash } from "../colors";
-import { getPhoto } from "../lib/db";
+import { estimateUsage, getPhoto } from "../lib/db";
 import { haptic } from "../lib/haptics";
-import { cleanBoardName, useBoards } from "../state/boards";
-import { peekBoardLayout, useStore } from "../state/store";
-import { useTheme } from "../state/theme";
+import { safeSet } from "../lib/safeStorage";
+import {
+  cleanBoardName,
+  DEFAULT_BOARD_ID,
+  DEMO_BOARD_ID,
+  useBoards,
+} from "../state/boards";
+import { TOUR_SEEN_KEY, useDemo } from "../state/demo";
+import {
+  clearDemoBoardData,
+  peekBoardLayout,
+  useStore,
+} from "../state/store";
+import { useSampleLoader } from "../state/useSampleLoader";
+import { useTheme, type AppearanceMode } from "../state/theme";
 import { PhotoHuntCard } from "./PhotoHunt";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
 
 /**
- * Board manager — the FAB on the home grid plus the bottom sheet it opens.
+ * The My Boards menu — the FAB on the home grid plus the bottom sheet it
+ * opens. This is the app's main menu:
  *
- * The sheet lists every board (each one a full nine-color hunt with its own
- * photos) with a miniature of all 81 slots so you can tell them apart at a
- * glance, lets you hop between them, and creates new ones with a custom
- * name. Switching never moves or removes anything: each board's layout
- * lives under its own storage keys and the photos all stay on the device.
+ *   - every board (each one a full nine-color hunt) with a miniature of all
+ *     81 slots, switchable in a tap, plus creating new ones;
+ *   - the photo-hunt language helper;
+ *   - the GLOBAL settings — appearance, the demo / sample actions, storage.
+ *     These live here, not in the per-board gear sheet, so a board's
+ *     settings stay about that board and a global toggle can never look
+ *     board-scoped.
+ *
+ * Demos play on a dedicated, disposable demo board (never inside a user's
+ * board): launching hops there, the tour hops back when it ends, and the
+ * board itself disappears once it's empty.
  */
 
 type BoardLayout = Record<string, (string | null)[]>;
 
 const SHEET_CLOSE_MS = 240;
+
+const MODES: { id: AppearanceMode; label: string }[] = [
+  { id: "system", label: "System" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];
+
+/**
+ * Cross-remount handoff for demo launches. Switching to the demo board
+ * remounts the whole board-scoped tree, so the "what to do once we get
+ * there" note lives at module scope (it survives remounts; a full page
+ * reload clears it, which is the right behavior for a stale request).
+ * Consumed by the effects in App.tsx.
+ */
+export const demoHandoff: {
+  pending: { kind: "tour" | "samples" } | null;
+  /** Board to hop back to (and clean up after) when the tour ends. */
+  returnAfterTour: string | null;
+} = { pending: null, returnAfterTour: null };
+
+/**
+ * Launch a demo ("tour" or "samples") on the demo board. If we're already
+ * on it, run directly; otherwise stash the request in the handoff and hop —
+ * App.tsx picks it up after the remount.
+ */
+export function useDemoLaunch(): {
+  available: boolean;
+  launch: (kind: "tour" | "samples") => void;
+} {
+  const { activeBoardId, openDemoBoard } = useBoards();
+  const demo = useDemo();
+  const sampleLoader = useSampleLoader();
+
+  const launch = useCallback(
+    (kind: "tour" | "samples") => {
+      if (kind === "tour") {
+        // However the tour is reached, the first-run nudge is done nagging.
+        safeSet(TOUR_SEEN_KEY, "1");
+      }
+      if (activeBoardId === DEMO_BOARD_ID) {
+        if (kind === "tour") demo.start();
+        else void sampleLoader.load();
+        return;
+      }
+      demoHandoff.pending = { kind };
+      demoHandoff.returnAfterTour =
+        kind === "tour" ? activeBoardId : demoHandoff.returnAfterTour;
+      openDemoBoard();
+    },
+    [activeBoardId, demo, sampleLoader, openDemoBoard],
+  );
+
+  return { available: demo.available, launch };
+}
 
 export function BoardsFab({
   visible,
@@ -70,16 +143,38 @@ export function BoardsFab({
 export function BoardsSheet({
   open,
   onClose,
+  onReplayIntro,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Reopen the watercolor intro overlay; the App owns the visible state. */
+  onReplayIntro: () => void;
 }) {
-  const { boards, activeBoardId, createBoard, switchBoard } = useBoards();
+  const {
+    boards,
+    activeBoardId,
+    createBoard,
+    switchBoard,
+    removeDemoBoard,
+  } = useBoards();
   const store = useStore();
   const toast = useToast();
+  const { mode, setMode } = useTheme();
+  const { available: demoAvailable, launch: launchDemo } = useDemoLaunch();
   const [draftName, setDraftName] = useState("");
   const [huntOpen, setHuntOpen] = useState(false);
   const totalSlots = COLORS.length * SLOTS_PER_BOARD;
+  const demoBoardExists = boards.some((b) => b.id === DEMO_BOARD_ID);
+
+  const [usage, setUsage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    void estimateUsage().then((bytes) => {
+      if (bytes == null) return setUsage(null);
+      const mb = bytes / (1024 * 1024);
+      setUsage(mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`);
+    });
+  }, [open]);
 
   // Thumbnails are only worth fetching once the sheet has actually been
   // opened — the sheet element itself is always mounted (it animates via
@@ -150,9 +245,59 @@ export function BoardsSheet({
 
   const canCreate = cleanBoardName(draftName).length > 0;
 
+  const runDemo = (kind: "tour" | "samples") => {
+    haptic("select");
+    onClose();
+    if (kind === "samples") {
+      toast.push({
+        title: "Loading sample photos…",
+        detail: "They land on the demo board, not on your own boards.",
+        tone: "info",
+        timeout: 3000,
+      });
+    }
+    window.setTimeout(() => launchDemo(kind), SHEET_CLOSE_MS);
+  };
+
+  // Wipe the demo board: its photos, keys and backup, then its registry
+  // entry. If it's the live board, land on the first board before surgery
+  // so the mounted store never has the rug pulled out from under it.
+  const clearDemo = () => {
+    haptic("tap");
+    onClose();
+    window.setTimeout(() => {
+      const wasActive = activeBoardId === DEMO_BOARD_ID;
+      if (wasActive) switchBoard(DEFAULT_BOARD_ID);
+      window.setTimeout(
+        () => {
+          void clearDemoBoardData().then(() => {
+            removeDemoBoard();
+            toast.push({
+              title: "Demo board cleared",
+              detail: "All demo photos were removed. Your boards are untouched.",
+              tone: "info",
+              timeout: 3000,
+            });
+          });
+        },
+        wasActive ? 150 : 0,
+      );
+    }, SHEET_CLOSE_MS);
+  };
+
   return (
     <Sheet open={open} onClose={onClose}>
-      <div style={{ padding: "8px 18px 16px" }}>
+      <div
+        style={{
+          padding: "8px 18px 16px",
+          // The menu can outgrow small screens (boards + settings); scroll
+          // inside the sheet. pan-y keeps native touch scrolling working
+          // under the sheet's drag-to-dismiss.
+          maxHeight: "calc(100dvh - var(--safe-top) - 72px)",
+          overflowY: "auto",
+          touchAction: "pan-y",
+        }}
+      >
         <div
           style={{
             display: "flex",
@@ -317,6 +462,102 @@ export function BoardsSheet({
         >
           🇭🇷 Ask to take someone's picture
         </button>
+
+        {/* Global settings from here down — they apply to the whole app,
+            which is why they live in this menu and not in any board. */}
+        <SectionLabel style={{ marginTop: 22 }}>Appearance</SectionLabel>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 2,
+            padding: 2,
+            background: "var(--fill-quaternary)",
+            borderRadius: 12,
+          }}
+        >
+          {MODES.map((m) => {
+            const active = mode === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => setMode(m.id)}
+                style={{
+                  padding: "9px 0",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: active ? 600 : 500,
+                  background: active ? "var(--bg-elevated)" : "transparent",
+                  color: active ? "var(--label)" : "var(--label-secondary)",
+                  boxShadow: active ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <SectionLabel style={{ marginTop: 22 }}>Demo</SectionLabel>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: demoAvailable ? "1fr 1fr" : "1fr",
+            gap: 8,
+          }}
+        >
+          <MenuButton
+            onClick={() => {
+              haptic("select");
+              onReplayIntro();
+            }}
+          >
+            Replay intro
+          </MenuButton>
+          {demoAvailable && (
+            <MenuButton onClick={() => runDemo("tour")}>
+              Watch the tour
+            </MenuButton>
+          )}
+          {demoAvailable && (
+            <MenuButton onClick={() => runDemo("samples")}>
+              Load sample photos
+            </MenuButton>
+          )}
+          {demoBoardExists && (
+            <MenuButton destructive onClick={clearDemo}>
+              Clear demo board
+            </MenuButton>
+          )}
+        </div>
+        <p
+          style={{
+            fontSize: 12.5,
+            lineHeight: 1.45,
+            color: "var(--label-secondary)",
+            margin: "10px 2px 0",
+          }}
+        >
+          The tour and sample photos play on their own demo board — your
+          boards are never touched, and the demo board disappears once it's
+          cleared.
+        </p>
+
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 12.5,
+            color: "var(--label-tertiary)",
+            marginTop: 22,
+            marginBottom: 0,
+            lineHeight: 1.5,
+          }}
+        >
+          Photos stay on this device — nothing is uploaded.
+          {usage ? ` Space used: ${usage}.` : ""}
+          <br />
+          snaps.quest · v1.0
+        </p>
       </div>
 
       {/* Full-screen, above the sheet (its z-index outranks the scrim, and
@@ -324,6 +565,60 @@ export function BoardsSheet({
           never grabs gestures made on it). */}
       <PhotoHuntCard open={huntOpen} onClose={() => setHuntOpen(false)} />
     </Sheet>
+  );
+}
+
+function SectionLabel({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: "var(--label-secondary)",
+        textTransform: "uppercase",
+        letterSpacing: 0.4,
+        margin: "0 2px 8px",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Compact menu action button (matches the board-settings style). */
+function MenuButton({
+  children,
+  onClick,
+  destructive,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "block",
+        width: "100%",
+        padding: "12px 12px",
+        borderRadius: 12,
+        background: "var(--fill-quaternary)",
+        fontSize: 14.5,
+        fontWeight: 600,
+        color: destructive ? "#ff453a" : "var(--accent)",
+        textAlign: "center",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -43,6 +43,17 @@ export interface BoardInfo {
 export const DEFAULT_BOARD_ID = "default";
 export const DEFAULT_BOARD_NAME = "My Snaps";
 
+/**
+ * Reserved board for demos: the guided tour and the sample photos play out
+ * here, never inside a user's own board. It's created on demand, listed
+ * like any board while it exists, and is the ONLY board that can ever be
+ * removed — and even then only through the demo-clear flow, which deletes
+ * nothing but this board's own contents. User-created boards get UUID ids,
+ * so neither reserved id can collide with one.
+ */
+export const DEMO_BOARD_ID = "demo";
+export const DEMO_BOARD_NAME = "Demo board";
+
 const LIST_KEY = "snaps.boardList.v1";
 const ACTIVE_KEY = "snaps.activeBoard.v1";
 /** IndexedDB meta mirror of the registry (survives a localStorage wipe). */
@@ -169,6 +180,16 @@ interface BoardsValue {
   createBoard: (name: string) => string | null;
   /** Switch the active board. Unknown ids are ignored. */
   switchBoard: (id: string) => void;
+  /** Rename a board. Empty (after cleaning) or unknown ids are ignored. */
+  renameBoard: (id: string, name: string) => void;
+  /** Create the demo board if needed and switch to it. */
+  openDemoBoard: () => void;
+  /**
+   * Drop the demo board from the registry (and land on the first board if
+   * it was active). Registry-only and hard-wired to the demo id — callers
+   * are responsible for having cleared its contents first.
+   */
+  removeDemoBoard: () => void;
 }
 
 const BoardsContext = createContext<BoardsValue | null>(null);
@@ -262,6 +283,44 @@ export function BoardsProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const renameBoard = useCallback((id: string, rawName: string) => {
+    const name = cleanBoardName(rawName);
+    if (!name) return;
+    setState((prev) => {
+      const boards = prev.boards.map((b) =>
+        b.id === id && b.name !== name ? { ...b, name } : b,
+      );
+      return boards.some((b, i) => b !== prev.boards[i])
+        ? { ...prev, boards }
+        : prev;
+    });
+  }, []);
+
+  const openDemoBoard = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      boards: prev.boards.some((b) => b.id === DEMO_BOARD_ID)
+        ? prev.boards
+        : [
+            ...prev.boards,
+            { id: DEMO_BOARD_ID, name: DEMO_BOARD_NAME, createdAt: Date.now() },
+          ],
+      activeId: DEMO_BOARD_ID,
+    }));
+  }, []);
+
+  const removeDemoBoard = useCallback(() => {
+    setState((prev) => {
+      if (!prev.boards.some((b) => b.id === DEMO_BOARD_ID)) return prev;
+      return {
+        ...prev,
+        boards: prev.boards.filter((b) => b.id !== DEMO_BOARD_ID),
+        activeId:
+          prev.activeId === DEMO_BOARD_ID ? DEFAULT_BOARD_ID : prev.activeId,
+      };
+    });
+  }, []);
+
   const value = useMemo<BoardsValue>(() => {
     const activeBoard =
       state.boards.find((b) => b.id === state.activeId) ?? state.boards[0];
@@ -271,8 +330,19 @@ export function BoardsProvider({ children }: { children: ReactNode }) {
       activeBoard,
       createBoard,
       switchBoard,
+      renameBoard,
+      openDemoBoard,
+      removeDemoBoard,
     };
-  }, [state.boards, state.activeId, createBoard, switchBoard]);
+  }, [
+    state.boards,
+    state.activeId,
+    createBoard,
+    switchBoard,
+    renameBoard,
+    openDemoBoard,
+    removeDemoBoard,
+  ]);
 
   return (
     <BoardsContext.Provider value={value}>{children}</BoardsContext.Provider>

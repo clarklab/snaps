@@ -81,11 +81,17 @@ const CONCURRENCY = 10;
  * Items are shuffled across colors and pulled by a small pool of workers, so
  * photos pop into different boards at the same time instead of completing
  * one color before starting the next. Returns the number of photos placed.
+ *
+ * `shouldContinue` is checked before every placement: when the board being
+ * seeded goes away mid-cascade (demo board cleared, board switched, tour
+ * skipped), the loop must stop — photos written after the caller is gone
+ * would never make it into a layout and end up orphaned in IndexedDB.
  */
 export async function loadSampleBoards(
   store: SeedStore,
   manifest: SamplesManifest,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  shouldContinue: () => boolean = () => true,
 ): Promise<number> {
   const items: { colorId: string; slot: number; url: string }[] = [];
   for (const color of COLORS) {
@@ -103,12 +109,16 @@ export async function loadSampleBoards(
 
   async function worker() {
     while (true) {
+      if (!shouldContinue()) return;
       const i = cursor++;
       if (i >= queue.length) return;
       const it = queue[i];
       try {
         const res = await fetch(it.url);
         const blob = await res.blob();
+        // Re-check after the fetch: the await is where a cancellation
+        // (unmount, demo clear) lands mid-flight.
+        if (!shouldContinue()) return;
         if (blob.type.startsWith("image/")) {
           await store.addPhoto(it.colorId, it.slot, blob, { sample: true });
         }

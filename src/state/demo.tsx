@@ -24,14 +24,19 @@ import { useTheme, type AppearanceMode } from "./theme";
  * boards and then drives the whole UI on the user's behalf so a first-time
  * visitor sees, in one quick smooth take, exactly how Snaps works:
  *
- *   1. The sample photos cascade into every empty board.
+ *   1. The sample photos cascade into every empty color grid.
  *   2. A color board (Red) opens.
  *   3. Its mosaic layout turns on.
- *   4. Settings opens and flips to dark mode.
+ *   4. The My Boards menu opens and flips to dark mode.
  *   5. Back to the (now dark) home grid.
  *   6. Another board (Black) opens to show photos on the dark canvas.
- *   7. Settings opens and flips back to light mode.
+ *   7. The My Boards menu opens and flips back to light mode.
  *   8. Back home, and the sample photos clear out — leaving a clean board.
+ *
+ * The whole tour plays on the dedicated demo board: launching it from
+ * anywhere hops there first (see useDemoLaunch / demoHandoff in
+ * components/Boards.tsx), and App.tsx hops back — removing the emptied
+ * demo board — when `running` flips false. User boards are never touched.
  *
  * The whole thing is choreographed here and exposed as a set of *view
  * overrides* the rest of the app reads while `running` is true; the tour
@@ -54,6 +59,7 @@ interface DemoValue {
   progress: { done: number; total: number };
   /** View overrides the app applies while `running`. */
   selectedId: string | null;
+  /** Drives the My Boards menu (where Appearance lives) during the tour. */
   settingsOpen: boolean;
   mosaic: boolean;
   /** Start the guided tour. No-op if already running or no samples. */
@@ -135,10 +141,14 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         // 1 — Cascade the samples into every empty board, then linger on the
-        //     freshly-filled grid.
+        //     freshly-filled grid. Skipping the tour cancels the cascade too,
+        //     so no photo is written after the cleanup pass has moved on.
         setLoading(true);
-        await loadSampleBoards(store, manifest, (done, total) =>
-          setProgress({ done, total }),
+        await loadSampleBoards(
+          store,
+          manifest,
+          (done, total) => setProgress({ done, total }),
+          () => runId.current === myId,
         );
         setLoading(false);
         await wait(1500);
@@ -151,7 +161,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setMosaic(true);
         await wait(1600);
 
-        // 4 — Open Settings and flip to dark mode.
+        // 4 — Open the My Boards menu and flip to dark mode.
         setSettingsOpen(true);
         await wait(700);
         setMode("dark");
@@ -168,7 +178,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         nav("black");
         await wait(1600);
 
-        // 7 — Open Settings and flip back to light mode.
+        // 7 — Open the My Boards menu and flip back to light mode.
         setSettingsOpen(true);
         await wait(700);
         setMode("light");
