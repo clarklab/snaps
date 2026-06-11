@@ -11,6 +11,7 @@ import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
+import { ResyncBanner } from "./components/ResyncBanner";
 import { SampleCard } from "./components/SampleCard";
 import { ShareIntake } from "./components/ShareIntake";
 import { Settings } from "./components/Settings";
@@ -279,6 +280,10 @@ export default function App() {
           {!online && <OfflineDot />}
         </button>
       </header>
+
+      {/* Storage-desync recovery: appears only when the store has verified
+          that placed photos won't load (counts up, tiles blank). */}
+      <ResyncBanner />
 
       <ColorBoard
         onSelect={openColor}

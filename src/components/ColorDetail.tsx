@@ -341,6 +341,8 @@ export function ColorDetail({
                   style={{ width: "100%", height: "100%" }}
                 >
                   <Thumbnail
+                    // Re-keyed by resync/repair so changed bytes re-fetch.
+                    key={`${photoId}@${store.photoEpoch}`}
                     photoId={photoId}
                     alt={`${color.name} photo`}
                     tint={wash(hex, scheme)}

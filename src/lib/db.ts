@@ -282,6 +282,66 @@ export async function getPhoto(id: string): Promise<PhotoRecord | undefined> {
 }
 
 /**
+ * Health of one stored photo, judged by actually reading bytes — not just
+ * checking that the record's key exists. Chromium can lose a blob's backing
+ * file while keeping the IndexedDB record (the key enumerates fine, the read
+ * fails), which is invisible to key-based reconciliation.
+ *
+ *  - "ok"           thumb bytes are readable; the grid can render it.
+ *  - "thumb-broken" thumb is unreadable but the original is intact —
+ *                   recoverable by regenerating the thumb.
+ *  - "bytes-lost"   record exists but neither blob can be read.
+ *  - "absent"       a clean read found no record under this id.
+ *  - "unknown"      the read itself failed — says nothing about the photo.
+ */
+export type PhotoHealth =
+  | "ok"
+  | "thumb-broken"
+  | "bytes-lost"
+  | "absent"
+  | "unknown";
+
+async function blobReadable(blob: Blob | undefined): Promise<boolean> {
+  if (!blob || blob.size === 0) return false;
+  try {
+    // A 1-byte read forces the browser to open the blob's backing file —
+    // exactly the operation that fails when the bytes are gone.
+    await blob.slice(0, 1).arrayBuffer();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function verifyPhoto(id: string): Promise<PhotoHealth> {
+  let rec: PhotoRecord | undefined;
+  try {
+    rec = await photoOp<PhotoRecord | undefined>("readonly", (s) => s.get(id));
+  } catch {
+    return "unknown";
+  }
+  if (!rec) return "absent";
+  if (await blobReadable(rec.thumb)) return "ok";
+  if (await blobReadable(rec.full)) return "thumb-broken";
+  return "bytes-lost";
+}
+
+/**
+ * Drop the cached connections so the next operation reopens fresh. Used by
+ * the resync flow to rule out a stale/poisoned connection before deciding
+ * anything about the data. Closing happens in the background — a pending
+ * (possibly wedged) open is left to settle on its own and is closed then.
+ */
+export function resetConnections(): void {
+  const main = dbPromise;
+  const meta = metaDbPromise;
+  dbPromise = null;
+  metaDbPromise = null;
+  void main?.then((db) => db.close()).catch(() => {});
+  void meta?.then((db) => db.close()).catch(() => {});
+}
+
+/**
  * Returns the set of photo IDs that exist in IndexedDB, or `null` if the
  * store could not be read reliably (DB open failure, transient error, the
  * iOS-Safari "empty on first access" quirk, etc.).

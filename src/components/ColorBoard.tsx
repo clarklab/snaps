@@ -266,6 +266,10 @@ function ColorTile({
           >
             {photoId && (
               <Thumbnail
+                // Keyed on the store's photo epoch: a resync/repair bumps it
+                // to force a fresh IndexedDB read of bytes that changed (or
+                // previously failed to read) under the same photo id.
+                key={`${photoId}@${store.photoEpoch}`}
                 photoId={photoId}
                 alt=""
                 tint={hex}
