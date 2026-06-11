@@ -14,9 +14,13 @@ import {
   deletePhoto,
   existingPhotoIds,
   getMeta,
+  getPhoto,
   putMeta,
   putPhoto,
+  resetConnections,
   StorageQuotaError,
+  verifyPhoto,
+  type PhotoHealth,
   type PhotoRecord,
 } from "../lib/db";
 import { processImage } from "../lib/image";
@@ -175,6 +179,63 @@ function countFilled(boards: Boards): number {
   );
 }
 
+/** Every distinct photo id currently placed in any slot. */
+function placedIds(boards: Boards): string[] {
+  const out = new Set<string>();
+  for (const c of COLORS) {
+    for (const id of boards[c.id] ?? []) if (id) out.add(id);
+  }
+  return [...out];
+}
+
+/** Byte-level health check for a batch of photo ids. */
+async function verifyPhotos(ids: string[]): Promise<Map<string, PhotoHealth>> {
+  const out = new Map<string, PhotoHealth>();
+  await Promise.all(
+    ids.map(async (id) => {
+      out.set(id, await verifyPhoto(id));
+    }),
+  );
+  return out;
+}
+
+/**
+ * Rebuild a photo's display thumb from its intact original. This is the
+ * recovery path for "thumb-broken" health: the browser lost the thumb's
+ * backing bytes but the full-quality original still reads fine.
+ */
+async function repairThumb(id: string): Promise<boolean> {
+  try {
+    const rec = await getPhoto(id);
+    if (!rec) return false;
+    const processed = await processImage(rec.full);
+    await putPhoto({
+      ...rec,
+      thumb: processed.thumb,
+      type: processed.type,
+      width: processed.width,
+      height: processed.height,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Outcome of a manual resync, for the caller's messaging. */
+export interface ResyncResult {
+  /** Photos verified readable (including any repaired). */
+  found: number;
+  /** Thumbs rebuilt from intact originals. */
+  repaired: number;
+  /** Photos confirmed gone twice over; their slots were cleared. */
+  lost: number;
+  /** Photos whose state couldn't be determined (storage unreadable). */
+  unknown: number;
+}
+
 /**
  * Whether any persisted board layout references this photo. Used by the
  * post-add janitor below. Errors count as "yes" — when storage can't be
@@ -286,6 +347,27 @@ interface StoreValue {
   sampleCount: number;
   /** Removes every sample photo, leaving the player's own photos intact. */
   clearSamples: () => Promise<void>;
+  /**
+   * True when slots reference photos that verifiably won't render (confirmed
+   * by re-checked byte reads) — the "counts are up but the grid is blank"
+   * state. Drives the Resync banner on the home grid.
+   */
+  needsResync: boolean;
+  /** True while a manual resync is running. */
+  resyncing: boolean;
+  /**
+   * Manual recovery: reopen storage fresh, deep-verify every placed photo,
+   * rebuild broken thumbs from intact originals, and only with this explicit
+   * user action clear slots whose photos are confirmed gone (double-checked
+   * clean reads). Never clears anything when storage merely failed to read.
+   */
+  resyncPhotos: () => Promise<ResyncResult | null>;
+  /**
+   * Cache-buster for photo renders. Bumped when stored bytes changed under
+   * an id (thumb repair) or when previously-failing reads may now succeed —
+   * key Thumbnails with it so they re-fetch.
+   */
+  photoEpoch: number;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -321,6 +403,10 @@ export function StoreProvider({
   // board briefly present after a wiped localStorage could clobber a good
   // backup before we get the chance to restore from it.
   const [hydrated, setHydrated] = useState(false);
+  const [needsResync, setNeedsResync] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
+  const [photoEpoch, setPhotoEpoch] = useState(0);
+  const resyncingRef = useRef(false);
   // Whether the photo store read cleanly this session. When false we refuse
   // to overwrite the backup with an *empty* layout (the emptiness can't be
   // trusted); a non-empty layout is always safe to back up.
@@ -490,6 +576,159 @@ export function StoreProvider({
     }, 600);
     return () => clearTimeout(t);
   }, [hydrated, backupMetaKey, boards, crops, sampleIds]);
+
+  // Post-hydration health check — the escape hatch for the states the
+  // reconcile pass deliberately leaves alone. Reconcile compares *keys* and
+  // refuses to act on a read that says "everything is gone" (it can't tell a
+  // real total eviction from iOS's transient empty-right-after-launch quirk),
+  // so two failure modes used to show counts forever over a blank grid:
+  //   - every referenced key missing (total eviction with surviving
+  //     localStorage), skipped by the spurious-empty guard on every launch;
+  //   - keys all present but blob bytes unreadable (Chromium can lose a
+  //     blob's backing file while keeping its record), invisible to any
+  //     key-level check.
+  // This pass reads actual bytes. Anything repairable is repaired silently
+  // (a broken thumb is rebuilt from the intact original). Anything that
+  // looks lost is re-verified once, seconds later on fresh connections, to
+  // rule out transients — and if it's still bad we only *flag* it
+  // (needsResync → the Resync banner). Clearing a user's slots stays behind
+  // their explicit tap in resyncPhotos, never automatic.
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    (async () => {
+      const placed = placedIds(boardsRef.current);
+      if (placed.length === 0) return;
+      const first = await verifyPhotos(placed);
+      if (cancelled) return;
+
+      const broken = placed.filter((id) => first.get(id) === "thumb-broken");
+      if (broken.length > 0) {
+        const fixed = await Promise.all(broken.map(repairThumb));
+        if (cancelled) return;
+        if (fixed.some(Boolean)) setPhotoEpoch((e) => e + 1);
+      }
+
+      const bad = placed.filter((id) => {
+        const h = first.get(id);
+        return h === "absent" || h === "bytes-lost" || h === "unknown";
+      });
+      if (bad.length === 0) return;
+
+      await sleep(4000);
+      if (cancelled) return;
+      resetConnections();
+      const recheck = await verifyPhotos(bad);
+      if (cancelled) return;
+
+      const nowBroken = bad.filter((id) => recheck.get(id) === "thumb-broken");
+      if (nowBroken.length > 0) await Promise.all(nowBroken.map(repairThumb));
+      if (cancelled) return;
+
+      const recovered = bad.some((id) => {
+        const h = recheck.get(id);
+        return h === "ok" || h === "thumb-broken";
+      });
+      // Re-render thumbnails whose first reads failed but now succeed.
+      if (recovered) setPhotoEpoch((e) => e + 1);
+
+      const stillBad = bad.some((id) => {
+        const h = recheck.get(id);
+        return h === "absent" || h === "bytes-lost" || h === "unknown";
+      });
+      if (stillBad) setNeedsResync(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once, when hydration completes for this board's provider.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  const resyncPhotos = useCallback(async (): Promise<ResyncResult | null> => {
+    if (resyncingRef.current) return null;
+    resyncingRef.current = true;
+    setResyncing(true);
+    try {
+      resetConnections();
+      const placed = placedIds(boardsRef.current);
+      if (placed.length === 0) {
+        setNeedsResync(false);
+        return { found: 0, repaired: 0, lost: 0, unknown: 0 };
+      }
+
+      const first = await verifyPhotos(placed);
+      let repaired = 0;
+      for (const id of placed) {
+        if (first.get(id) === "thumb-broken" && (await repairThumb(id))) {
+          repaired++;
+        }
+      }
+
+      // Removal candidates need a second, independent confirmation on fresh
+      // connections before we touch the layout. "unknown" (the read itself
+      // failed) is never a removal candidate — absence of evidence only
+      // counts when the read demonstrably worked.
+      const suspect = placed.filter((id) => {
+        const h = first.get(id);
+        return h === "absent" || h === "bytes-lost";
+      });
+      const confirmedLost: string[] = [];
+      const unknownIds = placed.filter((id) => first.get(id) === "unknown");
+      if (suspect.length > 0) {
+        await sleep(800);
+        resetConnections();
+        const second = await verifyPhotos(suspect);
+        for (const id of suspect) {
+          const h = second.get(id);
+          if (h === "absent" || h === "bytes-lost") confirmedLost.push(id);
+          else if (h === "thumb-broken" && (await repairThumb(id))) repaired++;
+          else if (h === "unknown") unknownIds.push(id);
+        }
+      }
+
+      if (!mountedRef.current) return null;
+
+      if (confirmedLost.length > 0) {
+        const lost = new Set(confirmedLost);
+        setBoards((prev) => {
+          const next: Boards = {};
+          for (const c of COLORS) {
+            next[c.id] = (prev[c.id] ?? Array(SLOTS_PER_BOARD).fill(null)).map(
+              (id) => (id && lost.has(id) ? null : id),
+            );
+          }
+          return next;
+        });
+        setSampleIds((s) => s.filter((x) => !lost.has(x)));
+        setCrops((prev) => {
+          const next: Crops = {};
+          for (const [id, c] of Object.entries(prev)) {
+            if (!lost.has(id)) next[id] = c;
+          }
+          return next;
+        });
+        // The loss was confirmed by clean reads — the (possibly now empty)
+        // layout is trustworthy and safe to mirror into the durable backup.
+        storeReadOkRef.current = true;
+      }
+
+      // Force every thumbnail to re-fetch: repaired thumbs re-render and
+      // photos whose earlier reads failed transiently get a fresh attempt.
+      setPhotoEpoch((e) => e + 1);
+      setNeedsResync(unknownIds.length > 0);
+
+      return {
+        found: placed.length - confirmedLost.length - unknownIds.length,
+        repaired,
+        lost: confirmedLost.length,
+        unknown: unknownIds.length,
+      };
+    } finally {
+      resyncingRef.current = false;
+      if (mountedRef.current) setResyncing(false);
+    }
+  }, []);
 
   const filledCount = useCallback(
     (colorId: string) => boards[colorId]?.filter(Boolean).length ?? 0,
@@ -710,6 +949,10 @@ export function StoreProvider({
       hasSamples: sampleIds.length > 0,
       sampleCount: sampleIds.length,
       clearSamples,
+      needsResync,
+      resyncing,
+      resyncPhotos,
+      photoEpoch,
     }),
     [
       boards,
@@ -726,6 +969,10 @@ export function StoreProvider({
       setCrop,
       sampleIds,
       clearSamples,
+      needsResync,
+      resyncing,
+      resyncPhotos,
+      photoEpoch,
     ]
   );
 
