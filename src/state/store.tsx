@@ -21,7 +21,13 @@ import {
 } from "../lib/db";
 import { processImage } from "../lib/image";
 import { type Crop, isIdentityCrop } from "../lib/crop";
-import { safeGet, safeSet, setStorageErrorHandler } from "../lib/safeStorage";
+import {
+  safeGet,
+  safeRemove,
+  safeSet,
+  setStorageErrorHandler,
+} from "../lib/safeStorage";
+import { boardKeySuffix, DEFAULT_BOARD_ID, DEMO_BOARD_ID } from "./boards";
 
 /** colorId -> array of SLOTS_PER_BOARD photo ids (or null). */
 type Boards = Record<string, (string | null)[]>;
@@ -29,6 +35,10 @@ type Boards = Record<string, (string | null)[]>;
 /** photoId -> non-destructive grid crop transform. */
 type Crops = Record<string, Crop>;
 
+// Base storage keys. These are the player's first board's keys VERBATIM —
+// multi-board support derives other boards' keys by suffixing the board id
+// (see boardKeySuffix), so existing data is never moved or rewritten and a
+// rolled-back build still reads it in place.
 const STORAGE_KEY = "snaps.boards.v1";
 const SAMPLE_KEY = "snaps.sampleIds.v1";
 const CROP_KEY = "snaps.crops.v1";
@@ -39,7 +49,8 @@ const PERSIST_KEY = "snaps.persistRequested.v1";
 // be cleared independently of IndexedDB (Safari "clear history", storage
 // pressure, a stray site-data reset) — when that happens this backup lets us
 // silently rebuild which photo sat in which slot. Bump the version if the
-// snapshot shape ever changes incompatibly.
+// snapshot shape ever changes incompatibly. Like the localStorage keys, this
+// is the first board's key verbatim; other boards suffix their id onto it.
 const BACKUP_META_KEY = "layout.v1";
 const BACKUP_VERSION = 1;
 
@@ -57,10 +68,10 @@ function emptyBoards(): Boards {
   return b;
 }
 
-function loadBoards(): Boards {
+function loadBoards(storageKey: string): Boards {
   const base = emptyBoards();
   try {
-    const raw = safeGet(STORAGE_KEY);
+    const raw = safeGet(storageKey);
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Boards;
     for (const c of COLORS) {
@@ -75,9 +86,9 @@ function loadBoards(): Boards {
   return base;
 }
 
-function loadSampleIds(): string[] {
+function loadSampleIds(sampleKey: string): string[] {
   try {
-    const raw = safeGet(SAMPLE_KEY);
+    const raw = safeGet(sampleKey);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
   } catch {
@@ -85,9 +96,9 @@ function loadSampleIds(): string[] {
   }
 }
 
-function loadCrops(): Crops {
+function loadCrops(cropKey: string): Crops {
   try {
-    const raw = safeGet(CROP_KEY);
+    const raw = safeGet(cropKey);
     const parsed = raw ? JSON.parse(raw) : {};
     if (!parsed || typeof parsed !== "object") return {};
     const out: Crops = {};
@@ -156,12 +167,79 @@ function sanitizeBackup(
   return { boards, crops, sampleIds, filled };
 }
 
-/** Total filled slots across every board. */
+/** Total filled slots across every color grid. */
 function countFilled(boards: Boards): number {
   return COLORS.reduce(
     (n, c) => n + (boards[c.id]?.filter(Boolean).length ?? 0),
     0,
   );
+}
+
+/**
+ * Whether any persisted board layout references this photo. Used by the
+ * post-add janitor below. Errors count as "yes" — when storage can't be
+ * read we must never conclude a photo is orphaned.
+ */
+function storedLayoutsContain(photoId: string): boolean {
+  try {
+    const needle = `"${photoId}"`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key !== STORAGE_KEY && !key.startsWith(`${STORAGE_KEY}.`)) continue;
+      const raw = localStorage.getItem(key);
+      if (raw && raw.includes(needle)) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Read-only peek at any board's slot layout straight from localStorage, for
+ * the boards list UI (mini previews + photo counts). Inactive boards have no
+ * live store; this never writes.
+ */
+export function peekBoardLayout(
+  boardId: string,
+): Record<string, (string | null)[]> {
+  return loadBoards(STORAGE_KEY + boardKeySuffix(boardId));
+}
+
+/**
+ * Delete the demo board's contents: its photos from IndexedDB, its layout /
+ * crop / sample keys from localStorage, and its durable layout backup.
+ *
+ * This is deliberately HARD-WIRED to the demo board — it takes no board id,
+ * so no code path can ever aim it at a user's board. Callers must make sure
+ * the demo board isn't the live (mounted) store when this runs, and remove
+ * it from the registry afterwards (useBoards().removeDemoBoard).
+ */
+export async function clearDemoBoardData(): Promise<void> {
+  const suffix = boardKeySuffix(DEMO_BOARD_ID);
+  const layout = loadBoards(STORAGE_KEY + suffix);
+  const ids = new Set<string>();
+  for (const slots of Object.values(layout)) {
+    for (const id of slots) if (id) ids.add(id);
+  }
+  await Promise.all(
+    [...ids].map((id) => deletePhoto(id).catch(() => {})),
+  );
+  safeRemove(STORAGE_KEY + suffix);
+  safeRemove(SAMPLE_KEY + suffix);
+  safeRemove(CROP_KEY + suffix);
+  // Neutralize the durable backup too. (Even a stale one would be harmless:
+  // restores only re-attach photos that still exist in IndexedDB, and these
+  // were just deleted — but don't leave it lying around.)
+  const empty: LayoutBackup = {
+    v: BACKUP_VERSION,
+    savedAt: Date.now(),
+    boards: emptyBoards(),
+    crops: {},
+    sampleIds: [],
+  };
+  await putMeta(BACKUP_META_KEY + suffix, empty).catch(() => {});
 }
 
 /**
@@ -212,11 +290,31 @@ interface StoreValue {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({
+  boardId = DEFAULT_BOARD_ID,
+  children,
+}: {
+  /**
+   * Which board this store reads and writes. The provider must be remounted
+   * (keyed) when the board changes — every storage key below derives from
+   * this id once, at mount, and the whole hydration pass runs against it.
+   */
+  boardId?: string;
+  children: ReactNode;
+}) {
   const toast = useToast();
-  const [boards, setBoards] = useState<Boards>(loadBoards);
-  const [sampleIds, setSampleIds] = useState<string[]>(loadSampleIds);
-  const [crops, setCrops] = useState<Crops>(loadCrops);
+  // Per-board storage keys. The default board's suffix is empty, leaving the
+  // original keys untouched for everyone's existing data.
+  const suffix = boardKeySuffix(boardId);
+  const storageKey = STORAGE_KEY + suffix;
+  const sampleKey = SAMPLE_KEY + suffix;
+  const cropKey = CROP_KEY + suffix;
+  const backupMetaKey = BACKUP_META_KEY + suffix;
+  const [boards, setBoards] = useState<Boards>(() => loadBoards(storageKey));
+  const [sampleIds, setSampleIds] = useState<string[]>(() =>
+    loadSampleIds(sampleKey),
+  );
+  const [crops, setCrops] = useState<Crops>(() => loadCrops(cropKey));
 
   // Hydration gate: flips true once the mount-time restore/reconcile pass has
   // run. The durable backup must not be written before this, or the empty
@@ -231,6 +329,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Keep a ref so async seeders read the latest sample set without re-binding.
   const sampleRef = useRef(sampleIds);
   sampleRef.current = sampleIds;
+  // Mirror of `boards` for the post-add janitor (read inside timeouts).
+  const boardsRef = useRef(boards);
+  boardsRef.current = boards;
+
+  // Whether this provider is still the live store. Once the board switches
+  // away (keyed remount) every pending setState here is silently dropped —
+  // so an addPhoto that crosses the unmount would write bytes that no
+  // layout will ever reference. addPhoto checks this and compensates.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Surface localStorage write failures (Safari private mode, quota) once.
   const storageToastShown = useRef(false);
@@ -250,16 +363,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    safeSet(STORAGE_KEY, JSON.stringify(boards));
-  }, [boards]);
+    safeSet(storageKey, JSON.stringify(boards));
+  }, [storageKey, boards]);
 
   useEffect(() => {
-    safeSet(SAMPLE_KEY, JSON.stringify(sampleIds));
-  }, [sampleIds]);
+    safeSet(sampleKey, JSON.stringify(sampleIds));
+  }, [sampleKey, sampleIds]);
 
   useEffect(() => {
-    safeSet(CROP_KEY, JSON.stringify(crops));
-  }, [crops]);
+    safeSet(cropKey, JSON.stringify(crops));
+  }, [cropKey, crops]);
 
   // Mount-time hydration. Two jobs, once:
   //   1. Self-heal — if localStorage came up empty but the durable backup in
@@ -275,7 +388,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (async () => {
       const [ids, backup] = await Promise.all([
         existingPhotoIds(),
-        getMeta<LayoutBackup>(BACKUP_META_KEY),
+        getMeta<LayoutBackup>(backupMetaKey),
       ]);
       if (cancelled) return;
 
@@ -349,8 +462,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // Runs once on mount. `boards` is read only for its initial value; the
-    // stable `toast` is the sole dependency.
+    // Runs once on mount. `boards` is read only for its initial value, and
+    // `backupMetaKey` is fixed for this mount (the provider is remounted per
+    // board); the stable `toast` is the sole dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
@@ -372,10 +486,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sampleIds,
     };
     const t = window.setTimeout(() => {
-      void putMeta(BACKUP_META_KEY, snapshot).catch(() => {});
+      void putMeta(backupMetaKey, snapshot).catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [hydrated, boards, crops, sampleIds]);
+  }, [hydrated, backupMetaKey, boards, crops, sampleIds]);
 
   const filledCount = useCallback(
     (colorId: string) => boards[colorId]?.filter(Boolean).length ?? 0,
@@ -401,6 +515,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPhoto = useCallback(
     async (colorId: string, slot: number, file: Blob, opts?: { sample?: boolean }) => {
+      if (!mountedRef.current) {
+        throw new Error("Board is no longer active");
+      }
       const processed = await processImage(file);
       const id =
         crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36)}`;
@@ -428,6 +545,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         throw err;
       }
 
+      // If the board switched away while the bytes were being written, the
+      // setBoards below would be dropped and the record would be orphaned —
+      // take it back out and tell the caller.
+      if (!mountedRef.current) {
+        void deletePhoto(id);
+        throw new Error("Board closed while saving");
+      }
+
       // First successful save → best-effort persistent-storage request.
       void requestPersistentStorage();
 
@@ -445,6 +570,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         return { ...prev, [colorId]: board };
       });
+
+      // Janitor: the setBoards above is only *queued* — if this provider
+      // unmounts before React commits it (board switched away mid-add, e.g.
+      // a demo cascade interrupted by "Clear demo board"), the update is
+      // silently dropped and the stored bytes would be referenced by no
+      // layout, ever. Verify shortly after the dust settles and take the
+      // photo back out if nothing references it. Both checks err toward
+      // keeping: a live in-memory reference (covers blocked localStorage,
+      // e.g. private mode) or any persisted layout reference wins.
+      window.setTimeout(() => {
+        if (
+          mountedRef.current &&
+          Object.values(boardsRef.current).some((slots) => slots.includes(id))
+        ) {
+          return;
+        }
+        if (storedLayoutsContain(id)) return;
+        void deletePhoto(id);
+      }, 2000);
 
       // Hand back the new id so callers can immediately act on it (e.g. open
       // the crop editor on a freshly-shared photo).

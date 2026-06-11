@@ -1,11 +1,16 @@
 import { AnimatePresence, LayoutGroup } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { colorById } from "./colors";
+import {
+  BoardsFab,
+  BoardsSheet,
+  demoHandoff,
+  useDemoLaunch,
+} from "./components/Boards";
 import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
-import { PhotoHunt } from "./components/PhotoHunt";
 import { SampleCard } from "./components/SampleCard";
 import { ShareIntake } from "./components/ShareIntake";
 import { Settings } from "./components/Settings";
@@ -16,12 +21,16 @@ import { safeGet, safeSet } from "./lib/safeStorage";
 import { detectStandalone } from "./lib/useInstallPrompt";
 import { clearShareFlag, takeSharedImages } from "./lib/shareTarget";
 import { startTransition } from "./lib/viewTransitions";
+import { DEMO_BOARD_ID, useBoards } from "./state/boards";
 import { TOUR_SEEN_KEY, useDemo } from "./state/demo";
-import { useStore } from "./state/store";
+import { clearDemoBoardData, peekBoardLayout, useStore } from "./state/store";
+import { useSampleLoader } from "./state/useSampleLoader";
 
 export default function App() {
   const [userSelectedId, setSelectedId] = useState<string | null>(null);
   const [userSettingsOpen, setSettingsOpen] = useState(false);
+  // The board manager sheet, opened from the home-grid FAB.
+  const [boardsOpen, setBoardsOpen] = useState(false);
   // Intro state is initialized synchronously from localStorage so there's
   // no flicker on first paint: returning users render the home grid
   // immediately, first-time users render the intro immediately.
@@ -46,14 +55,20 @@ export default function App() {
   const online = useNetworkStatus();
   const toast = useToast();
   const store = useStore();
+  const { activeBoard, activeBoardId, switchBoard, removeDemoBoard } =
+    useBoards();
   const demo = useDemo();
+  const sampleLoader = useSampleLoader();
+  const { launch: launchDemo } = useDemoLaunch();
   const firstNetworkTick = useRef(true);
   const supportsVT = typeof document !== "undefined" && "startViewTransition" in document;
 
   // While the guided tour plays it drives the view; otherwise the user's own
-  // navigation is in charge.
+  // navigation is in charge. The tour's "settings" beat opens the My Boards
+  // menu (where Appearance lives now), never the per-board settings.
   const selectedId = demo.running ? demo.selectedId : userSelectedId;
-  const settingsOpen = demo.running ? demo.settingsOpen : userSettingsOpen;
+  const settingsOpen = demo.running ? false : userSettingsOpen;
+  const boardsMenuOpen = demo.running ? demo.settingsOpen : boardsOpen;
   const selected = selectedId ? colorById(selectedId) : undefined;
 
   // First-run nudge: offer the tour on a clean board, once.
@@ -70,8 +85,55 @@ export default function App() {
   };
   const startTour = () => {
     markTourSeen();
-    demo.start();
+    // Plays on the demo board, never on the user's own board: this hops
+    // there and the handoff effect below starts the tour after the remount.
+    launchDemo("tour");
   };
+
+  // Demo handoff, part 1: a launch that had to hop boards lands here once
+  // the demo board's tree has mounted (and the sample manifest is ready).
+  useEffect(() => {
+    const pending = demoHandoff.pending;
+    if (!pending || activeBoardId !== DEMO_BOARD_ID) return;
+    if (pending.kind === "tour") {
+      if (!demo.available) return;
+      demoHandoff.pending = null;
+      demo.start();
+    } else {
+      if (!sampleLoader.available) return;
+      demoHandoff.pending = null;
+      void sampleLoader.load();
+    }
+  }, [activeBoardId, demo, sampleLoader]);
+
+  // Demo handoff, part 2: when the tour ends (or is skipped), hop back to
+  // the board the user came from, and drop the demo board entirely if the
+  // tour left it empty (it clears its own samples on the way out). Photos
+  // someone added to the demo board themselves keep it alive — removal
+  // only ever happens at zero photos.
+  const tourWasRunning = useRef(false);
+  useEffect(() => {
+    if (demo.running) {
+      tourWasRunning.current = true;
+      return;
+    }
+    if (!tourWasRunning.current) return;
+    tourWasRunning.current = false;
+    const returnTo = demoHandoff.returnAfterTour;
+    demoHandoff.returnAfterTour = null;
+    if (!returnTo || activeBoardId !== DEMO_BOARD_ID) return;
+    switchBoard(returnTo);
+    window.setTimeout(() => {
+      const layout = peekBoardLayout(DEMO_BOARD_ID);
+      const filled = Object.values(layout).reduce(
+        (n, slots) => n + slots.filter(Boolean).length,
+        0,
+      );
+      if (filled === 0) {
+        void clearDemoBoardData().then(() => removeDemoBoard());
+      }
+    }, 150);
+  }, [demo.running, activeBoardId, switchBoard, removeDemoBoard]);
 
   // Web Share Target intake. The service worker stashes shared images and
   // redirects here; we pull them out of the holding cache and hand them to
@@ -177,6 +239,8 @@ export default function App() {
           padding: "calc(var(--safe-top) + 16px) 16px 14px",
         }}
       >
+        {/* The active board's name is the page title — "My Snaps" for the
+            board everyone starts with, the custom name for the rest. */}
         <h1
           style={{
             margin: 0,
@@ -184,15 +248,18 @@ export default function App() {
             fontWeight: 700,
             letterSpacing: -0.2,
             whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "42vw",
             flexShrink: 0,
           }}
         >
-          Snaps
+          {activeBoard.name}
         </h1>
         <OverallProgress />
         <button
           onClick={() => setSettingsOpen(true)}
-          aria-label={online ? "Settings" : "Settings — offline"}
+          aria-label={online ? "Board settings" : "Board settings — offline"}
           style={{
             position: "relative",
             width: 36,
@@ -219,17 +286,32 @@ export default function App() {
         activeId={selectedId}
       />
 
-      {/* Photo-hunt helper FAB (Croatian flag). Only on the home grid —
-          hidden whenever a color detail, settings, the intro, or the tour
-          owns the screen. */}
-      <PhotoHunt
+      {/* My Boards FAB. Only on the home grid — hidden whenever a color
+          detail, settings, the intro, or the tour owns the screen. */}
+      <BoardsFab
         visible={
           !selected &&
           !settingsOpen &&
+          !boardsMenuOpen &&
           !introOpen &&
           !demo.running &&
           sharedFiles.length === 0
         }
+        onOpen={() => setBoardsOpen(true)}
+      />
+      <BoardsSheet
+        open={boardsMenuOpen}
+        onClose={() => setBoardsOpen(false)}
+        onReplayIntro={() => {
+          // Forget that the intro was seen and pop it back open over the
+          // grid. Closing the menu first so the intro isn't covered by the
+          // sheet on the way back in. The bumped runId forces a fresh mount
+          // so the frame counter restarts at the first slide.
+          safeSet(INTRO_SEEN_KEY, "");
+          setBoardsOpen(false);
+          setIntroRunId((id) => id + 1);
+          setIntroOpen(true);
+        }}
       />
 
       {/* Detail overlays the home and morphs from the tapped tile.
@@ -249,20 +331,7 @@ export default function App() {
         />
       )}
 
-      <Settings
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onReplayIntro={() => {
-          // Forget that the intro was seen and pop it back open over the
-          // grid. Closing Settings first so the intro isn't covered by the
-          // settings sheet on the way back in. The bumped runId forces a
-          // fresh mount so the frame counter restarts at the first slide.
-          safeSet(INTRO_SEEN_KEY, "");
-          setSettingsOpen(false);
-          setIntroRunId((id) => id + 1);
-          setIntroOpen(true);
-        }}
-      />
+      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* First-run nudge to play the guided tour, presented as a native
           bottom sheet. SampleCard wraps Sheet internally and stays

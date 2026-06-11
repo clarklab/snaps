@@ -1,54 +1,46 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../colors";
-import { estimateUsage } from "../lib/db";
 import { haptic } from "../lib/haptics";
-import { useSampleLoader } from "../state/useSampleLoader";
+import { cleanBoardName, useBoards } from "../state/boards";
 import { useStore } from "../state/store";
-import { useTheme, type AppearanceMode } from "../state/theme";
-import { ProgressBar } from "./Progress";
+import {
+  MenuFootnote,
+  MenuGroup,
+  MenuRow,
+  SectionLabel,
+} from "./MenuKit";
 import { Sheet } from "./Sheet";
 
-const MODES: { id: AppearanceMode; label: string }[] = [
-  { id: "system", label: "System" },
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-];
-
+/**
+ * Board settings — everything in here is about the board you're currently
+ * on, and nothing else. Global concerns (appearance, demos, storage, the
+ * language helper) live in the My Boards menu on the home-grid FAB, so a
+ * change made here can never reach across boards and a global toggle can
+ * never look like it "belongs" to one board.
+ */
 export function Settings({
   open,
   onClose,
-  onReplayIntro,
 }: {
   open: boolean;
   onClose: () => void;
-  /** Reopen the watercolor intro overlay; the App owns the visible state. */
-  onReplayIntro: () => void;
 }) {
-  const { mode, setMode } = useTheme();
   const store = useStore();
-  const [usage, setUsage] = useState<string | null>(null);
+  const { activeBoard, renameBoard } = useBoards();
 
-  const {
-    available: samplesAvailable,
-    seeding,
-    progress,
-    note,
-    load,
-  } = useSampleLoader();
-
+  // Local draft of the board name; saved on demand, re-synced whenever the
+  // sheet opens (or the board itself changes underneath us).
+  const [draft, setDraft] = useState(activeBoard.name);
   useEffect(() => {
-    if (!open) return;
-    estimateUsage().then((bytes) => {
-      if (bytes == null) return setUsage(null);
-      const mb = bytes / (1024 * 1024);
-      setUsage(mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`);
-    });
-  }, [open]);
+    if (open) setDraft(activeBoard.name);
+  }, [open, activeBoard.name]);
 
-  const handleLoadSamples = async () => {
+  const cleaned = cleanBoardName(draft);
+  const dirty = cleaned.length > 0 && cleaned !== activeBoard.name;
+  const saveName = () => {
+    if (!dirty) return;
     haptic("select");
-    const placed = await load();
-    if (placed) haptic("success");
+    renameBoard(activeBoard.id, cleaned);
   };
 
   const handleClearSamples = () => {
@@ -64,10 +56,12 @@ export function Settings({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 18,
+            marginBottom: 14,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Settings</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+            Board Settings
+          </h2>
           <button
             onClick={onClose}
             style={{ fontSize: 17, fontWeight: 600, color: "var(--accent)" }}
@@ -76,228 +70,88 @@ export function Settings({
           </button>
         </div>
 
-        <SectionLabel>Appearance</SectionLabel>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 2,
-            padding: 2,
-            background: "var(--fill-quaternary)",
-            borderRadius: 12,
-          }}
-        >
-          {MODES.map((m) => {
-            const active = mode === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => setMode(m.id)}
-                style={{
-                  padding: "9px 0",
-                  borderRadius: 10,
-                  fontSize: 15,
-                  fontWeight: active ? 600 : 500,
-                  background: active ? "var(--bg-elevated)" : "transparent",
-                  color: active ? "var(--label)" : "var(--label-secondary)",
-                  boxShadow: active ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
-                }}
-              >
-                {m.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <SectionLabel style={{ marginTop: 22 }}>Progress</SectionLabel>
-        <Row
-          label="Photos placed"
-          value={`${store.totalFilled} of ${store.totalSlots}`}
-        />
-        <Row
-          label="Colors complete"
-          value={`${store.completedColors} of ${COLORS.length}`}
-        />
-
-        <SectionLabel style={{ marginTop: 22 }}>Your Photos</SectionLabel>
-        <Row label="Storage" value="On this device" />
-        <Row label="Quality" value="Original, uncompressed" />
-        {usage && <Row label="Space used" value={usage} />}
-        <p
-          style={{
-            fontSize: 12.5,
-            lineHeight: 1.45,
-            color: "var(--label-secondary)",
-            margin: "10px 2px 0",
-          }}
-        >
-          Photos never leave your device. Snaps keeps the original file
-          bytes in your browser's local storage — nothing is uploaded or
-          compressed.
-        </p>
-
-        {/* Demo controls live together at the bottom — replay the intro
-            and load/remove the curated sample photos. Two-up button row so
-            both actions feel equally weighted. */}
-        <SectionLabel style={{ marginTop: 24 }}>Demo</SectionLabel>
-        {seeding ? (
-          <div style={{ padding: "4px 2px 2px" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: 14,
-                marginBottom: 8,
-                color: "var(--label-secondary)",
-              }}
-            >
-              <span>Loading example photos…</span>
-              <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                {progress.done} / {progress.total || "…"}
-              </span>
-            </div>
-            <ProgressBar
-              value={progress.done}
-              total={progress.total || 1}
-              tint="var(--accent)"
-            />
-          </div>
-        ) : (
+        <SectionLabel first>Name</SectionLabel>
+        <MenuGroup>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: samplesAvailable ? "1fr 1fr" : "1fr",
-              gap: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "3px 6px 3px 14px",
             }}
           >
-            <SmallButton
-              onClick={() => {
-                haptic("select");
-                onReplayIntro();
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+              }}
+              maxLength={40}
+              enterKeyHint="done"
+              aria-label="Board name"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "10px 0",
+                border: "none",
+                background: "transparent",
+                color: "var(--label)",
+                fontSize: 16,
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={saveName}
+              disabled={!dirty}
+              style={{
+                padding: "10px 10px",
+                fontSize: 15.5,
+                fontWeight: 650,
+                background: "transparent",
+                color: dirty ? "var(--accent)" : "var(--label-tertiary)",
+                transition: "color 0.15s ease",
+                flexShrink: 0,
               }}
             >
-              Replay intro
-            </SmallButton>
-            {samplesAvailable &&
-              (store.hasSamples ? (
-                <SmallButton destructive onClick={handleClearSamples}>
-                  Remove samples
-                </SmallButton>
-              ) : (
-                <SmallButton onClick={handleLoadSamples}>
-                  Load samples
-                </SmallButton>
-              ))}
+              Save
+            </button>
           </div>
-        )}
-        {samplesAvailable && !seeding && !store.hasSamples && (
-          <p
-            style={{
-              fontSize: 12.5,
-              lineHeight: 1.45,
-              color: "var(--label-secondary)",
-              margin: "10px 2px 0",
-            }}
-          >
-            Fills empty boards with curated single-color photos from Unsplash
-            so you can see what finished collages look like.
-          </p>
-        )}
-        {note && (
-          <p
-            style={{
-              fontSize: 12.5,
-              lineHeight: 1.45,
-              color: "var(--label-secondary)",
-              margin: "10px 2px 0",
-            }}
-          >
-            {note}
-          </p>
-        )}
+        </MenuGroup>
 
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: 12.5,
-            color: "var(--label-tertiary)",
-            marginTop: 22,
-          }}
-        >
-          snaps.quest · v1.0
-        </p>
+        <SectionLabel>Progress</SectionLabel>
+        <MenuGroup>
+          <MenuRow
+            label="Photos placed"
+            detail={`${store.totalFilled} of ${store.totalSlots}`}
+          />
+          <MenuRow
+            label="Colors complete"
+            detail={`${store.completedColors} of ${COLORS.length}`}
+          />
+        </MenuGroup>
+
+        {/* Sample photos that were loaded onto THIS board (normally only the
+            demo board ever has them). Removing them never touches the
+            photos you added yourself. */}
+        {store.hasSamples && (
+          <>
+            <SectionLabel>Sample Photos</SectionLabel>
+            <MenuGroup>
+              <MenuRow
+                destructive
+                label={`Remove ${store.sampleCount} sample photo${
+                  store.sampleCount === 1 ? "" : "s"
+                }`}
+                onClick={handleClearSamples}
+              />
+            </MenuGroup>
+            <MenuFootnote>
+              Only the loaded examples are removed — photos you added
+              yourself stay put.
+            </MenuFootnote>
+          </>
+        )}
       </div>
     </Sheet>
-  );
-}
-
-function SectionLabel({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: "var(--label-secondary)",
-        textTransform: "uppercase",
-        letterSpacing: 0.4,
-        margin: "0 2px 8px",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Compact button used in the two-up Demo row. */
-function SmallButton({
-  children,
-  onClick,
-  destructive,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "block",
-        width: "100%",
-        padding: "12px 12px",
-        borderRadius: 12,
-        background: "var(--fill-quaternary)",
-        fontSize: 14.5,
-        fontWeight: 600,
-        color: destructive ? "#ff453a" : "var(--accent)",
-        textAlign: "center",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        padding: "11px 2px",
-        borderBottom: "1px solid var(--separator)",
-        fontSize: 15,
-      }}
-    >
-      <span>{label}</span>
-      <span style={{ color: "var(--label-secondary)" }}>{value}</span>
-    </div>
   );
 }
