@@ -11,7 +11,6 @@ import { haptic } from "../lib/haptics";
 import { useGridDrag } from "../lib/useGridDrag";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
-import { Confetti } from "./Confetti";
 import { PhotoViewer } from "./PhotoViewer";
 import { ProgressBar } from "./Progress";
 import { ShareSheet } from "./ShareSheet";
@@ -42,7 +41,6 @@ export function ColorDetail({
   const [viewerSlot, setViewerSlot] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [justCompleted, setJustCompleted] = useState(false);
   const [mosaic, setMosaic] = useState<MosaicState | null>(null);
 
   const libRef = useRef<HTMLInputElement>(null);
@@ -90,17 +88,12 @@ export function ColorDetail({
     e.target.value = ""; // allow re-picking the same file later
     if (!file || activeSlot == null) return;
     const slot = activeSlot;
-    const willComplete = store.filledCount(color.id) === SLOTS_PER_BOARD - 1;
     setActiveSlot(null);
     try {
+      // Completing the grid is celebrated globally: the store emits a
+      // CompletionEvent and CelebrationHost (App) takes it from there.
       await store.addPhoto(color.id, slot, file);
-      if (willComplete) {
-        haptic("success");
-        setJustCompleted(true);
-        setTimeout(() => setJustCompleted(false), 1900);
-      } else {
-        haptic("tap");
-      }
+      haptic("tap");
     } catch (err) {
       console.error("Failed to add photo", err);
     }
@@ -467,45 +460,6 @@ export function ColorDetail({
           </SheetButton>
         </div>
       </Sheet>
-
-      {/* Board-complete celebration */}
-      <AnimatePresence>
-        {justCompleted && (
-          <>
-            <Confetti tint={hex} />
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ type: "spring", stiffness: 400, damping: 26 }}
-              style={{
-                position: "fixed",
-                top: "calc(var(--safe-top) + 16px)",
-                left: 0,
-                right: 0,
-                display: "flex",
-                justifyContent: "center",
-                pointerEvents: "none",
-                zIndex: 46,
-              }}
-            >
-              <div
-                style={{
-                  background: "var(--bg-elevated)",
-                  color: "var(--label)",
-                  padding: "10px 18px",
-                  borderRadius: 999,
-                  boxShadow: "var(--surface-shadow)",
-                  fontSize: 15,
-                  fontWeight: 600,
-                }}
-              >
-                🎉 {color.name} board complete
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* Full-screen viewer */}
       <AnimatePresence>

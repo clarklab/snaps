@@ -10,7 +10,16 @@ import { useEffect, useRef } from "react";
  * `tint` colors the burst to the color the player just completed; passing
  * undefined uses a rainbow palette.
  */
-export function Confetti({ tint, count = 80 }: { tint?: string; count?: number }) {
+export function Confetti({
+  tint,
+  count = 80,
+  zIndex = 45,
+}: {
+  tint?: string;
+  count?: number;
+  /** Stacking position — celebrations layer bursts above their own modal. */
+  zIndex?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -117,7 +126,7 @@ export function Confetti({ tint, count = 80 }: { tint?: string; count?: number }
         position: "fixed",
         inset: 0,
         pointerEvents: "none",
-        zIndex: 45,
+        zIndex,
       }}
     />
   );
