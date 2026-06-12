@@ -26,6 +26,14 @@ import {
 import { processImage } from "../lib/image";
 import { type Crop, isIdentityCrop } from "../lib/crop";
 import {
+  buildBackupZip,
+  MANIFEST_NAME,
+  readBackupZip,
+  type BackupManifest,
+  type BackupPhotoEntry,
+} from "../lib/backupFile";
+import { ensurePersistentStorage } from "../lib/persistence";
+import {
   safeGet,
   safeRemove,
   safeSet,
@@ -46,7 +54,6 @@ type Crops = Record<string, Crop>;
 const STORAGE_KEY = "snaps.boards.v1";
 const SAMPLE_KEY = "snaps.sampleIds.v1";
 const CROP_KEY = "snaps.crops.v1";
-const PERSIST_KEY = "snaps.persistRequested.v1";
 
 // Durable layout backup, kept in IndexedDB (the `meta` store) alongside the
 // photo bytes. localStorage is the primary home for the layout, but it can
@@ -303,21 +310,28 @@ export async function clearDemoBoardData(): Promise<void> {
   await putMeta(BACKUP_META_KEY + suffix, empty).catch(() => {});
 }
 
-/**
- * Best-effort: ask the OS not to evict our IndexedDB data. The result is
- * cached in localStorage so we never nag the user again. iOS Safari grants
- * this silently after some engagement; Chrome grants it for installed PWAs.
- */
-async function requestPersistentStorage(): Promise<void> {
-  if (safeGet(PERSIST_KEY)) return;
-  try {
-    const persist = navigator.storage?.persist;
-    if (!persist) return;
-    const granted = await persist.call(navigator.storage);
-    safeSet(PERSIST_KEY, granted ? "granted" : "denied");
-  } catch {
-    /* no-op */
-  }
+/** File extension for a photo's original MIME type, for backup archives. */
+function extForType(type: string): string {
+  const map: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/avif": "avif",
+    "image/heic": "heic",
+    "image/heif": "heif",
+  };
+  return map[type] ?? "img";
+}
+
+function isValidCrop(c: unknown): c is Crop {
+  const v = c as Partial<Crop> | null;
+  return (
+    !!v &&
+    typeof v.scale === "number" &&
+    typeof v.x === "number" &&
+    typeof v.y === "number"
+  );
 }
 
 interface StoreValue {
@@ -368,6 +382,21 @@ interface StoreValue {
    * key Thumbnails with it so they re-fetch.
    */
   photoEpoch: number;
+  /**
+   * Package this board — original photo bytes, layout, crops — into a
+   * downloadable ZIP. `skipped` counts placed photos whose bytes couldn't
+   * be read (they're left out rather than failing the whole backup).
+   */
+  exportBoardData: (
+    boardName: string,
+  ) => Promise<{ blob: Blob; filename: string; photoCount: number; skipped: number }>;
+  /**
+   * Replace this board's contents with a backup archive produced by
+   * exportBoardData. Throws BackupFileError for files that aren't Snaps
+   * backups and StorageQuotaError when the device is full; on any failure
+   * the board is left exactly as it was.
+   */
+  importBoardData: (file: Blob) => Promise<{ placed: number }>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -418,6 +447,9 @@ export function StoreProvider({
   // Mirror of `boards` for the post-add janitor (read inside timeouts).
   const boardsRef = useRef(boards);
   boardsRef.current = boards;
+  // Mirror of `crops` for the backup exporter (read inside async work).
+  const cropsRef = useRef(crops);
+  cropsRef.current = crops;
 
   // Whether this provider is still the live store. Once the board switches
   // away (keyed remount) every pending setState here is silently dropped —
@@ -730,6 +762,163 @@ export function StoreProvider({
     }
   }, []);
 
+  const exportBoardData = useCallback(async (boardName: string) => {
+    const layout = boardsRef.current;
+    const cropsNow = cropsRef.current;
+    const colors: BackupManifest["colors"] = {};
+    const files: { name: string; blob: Blob }[] = [];
+    let photoCount = 0;
+    let skipped = 0;
+    for (const c of COLORS) {
+      const slots = layout[c.id] ?? Array(SLOTS_PER_BOARD).fill(null);
+      const entries: (BackupPhotoEntry | null)[] = [];
+      for (let i = 0; i < SLOTS_PER_BOARD; i++) {
+        const id = slots[i];
+        if (!id) {
+          entries.push(null);
+          continue;
+        }
+        const rec = await getPhoto(id).catch(() => undefined);
+        // Confirm the original's bytes actually read before including it —
+        // a photo with a lost backing file would fail the whole archive.
+        let readable = false;
+        if (rec) {
+          try {
+            await rec.full.slice(0, 1).arrayBuffer();
+            readable = rec.full.size > 0;
+          } catch {
+            readable = false;
+          }
+        }
+        if (!rec || !readable) {
+          skipped++;
+          entries.push(null);
+          continue;
+        }
+        const name = `photos/${c.id}-${i + 1}.${extForType(rec.type)}`;
+        const entry: BackupPhotoEntry = {
+          file: name,
+          type: rec.type || "image/jpeg",
+        };
+        if (cropsNow[id]) entry.crop = cropsNow[id];
+        files.push({ name, blob: rec.full });
+        entries.push(entry);
+        photoCount++;
+      }
+      colors[c.id] = entries;
+    }
+    const manifest: BackupManifest = {
+      app: "snaps-board-backup",
+      version: 1,
+      boardName,
+      savedAt: Date.now(),
+      colors,
+    };
+    files.unshift({
+      name: MANIFEST_NAME,
+      blob: new Blob([JSON.stringify(manifest, null, 2)], {
+        type: "application/json",
+      }),
+    });
+    const blob = await buildBackupZip(files);
+    const date = new Date().toISOString().slice(0, 10);
+    const safeName =
+      boardName
+        .replace(/[^\w\- ]+/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .toLowerCase() || "board";
+    return {
+      blob,
+      filename: `snaps-${safeName}-${date}.zip`,
+      photoCount,
+      skipped,
+    };
+  }, []);
+
+  const importBoardData = useCallback(async (file: Blob) => {
+    // Parses and validates before anything is written; throws
+    // BackupFileError for files that aren't Snaps backups.
+    const { manifest, files } = await readBackupZip(file);
+    if (!mountedRef.current) throw new Error("Board is no longer active");
+
+    const nextBoards = emptyBoards();
+    const nextCrops: Crops = {};
+    const written: string[] = [];
+    let placed = 0;
+    try {
+      for (const c of COLORS) {
+        const entries = Array.isArray(manifest.colors?.[c.id])
+          ? manifest.colors[c.id]
+          : [];
+        for (let i = 0; i < SLOTS_PER_BOARD; i++) {
+          const entry = entries[i];
+          if (!entry || typeof entry.file !== "string") continue;
+          const raw = files.get(entry.file);
+          if (!raw) continue;
+          const typed = new Blob([raw], {
+            type:
+              typeof entry.type === "string" && entry.type
+                ? entry.type
+                : "image/jpeg",
+          });
+          // A single undecodable photo (e.g. a HEIC backup restored on a
+          // browser without HEIC support) skips that slot rather than
+          // failing the whole restore; storage errors still abort below.
+          let processed;
+          try {
+            processed = await processImage(typed);
+          } catch {
+            continue;
+          }
+          const id =
+            crypto.randomUUID?.() ??
+            `${Date.now()}-${Math.random().toString(36)}`;
+          await putPhoto({
+            id,
+            full: typed,
+            thumb: processed.thumb,
+            type: processed.type,
+            width: processed.width,
+            height: processed.height,
+            addedAt: Date.now(),
+          });
+          written.push(id);
+          nextBoards[c.id][i] = id;
+          if (isValidCrop(entry.crop)) {
+            nextCrops[id] = {
+              scale: entry.crop.scale,
+              x: entry.crop.x,
+              y: entry.crop.y,
+            };
+          }
+          placed++;
+        }
+      }
+    } catch (err) {
+      // All-or-nothing: take back everything written so a failed restore
+      // leaves both the board and the photo store exactly as they were.
+      await Promise.all(written.map((id) => deletePhoto(id).catch(() => {})));
+      throw err;
+    }
+
+    if (!mountedRef.current) {
+      await Promise.all(written.map((id) => deletePhoto(id).catch(() => {})));
+      throw new Error("Board closed while restoring");
+    }
+
+    const previous = placedIds(boardsRef.current);
+    setBoards(nextBoards);
+    setCrops(nextCrops);
+    setSampleIds([]);
+    for (const id of previous) void deletePhoto(id);
+    storeReadOkRef.current = true;
+    setNeedsResync(false);
+    setPhotoEpoch((e) => e + 1);
+    void ensurePersistentStorage();
+    return { placed };
+  }, []);
+
   const filledCount = useCallback(
     (colorId: string) => boards[colorId]?.filter(Boolean).length ?? 0,
     [boards]
@@ -792,8 +981,8 @@ export function StoreProvider({
         throw new Error("Board closed while saving");
       }
 
-      // First successful save → best-effort persistent-storage request.
-      void requestPersistentStorage();
+      // Successful save → (re-)request durable storage, throttled internally.
+      void ensurePersistentStorage();
 
       if (opts?.sample) setSampleIds((prev) => [...prev, id]);
 
@@ -953,6 +1142,8 @@ export function StoreProvider({
       resyncing,
       resyncPhotos,
       photoEpoch,
+      exportBoardData,
+      importBoardData,
     }),
     [
       boards,
@@ -973,6 +1164,8 @@ export function StoreProvider({
       resyncing,
       resyncPhotos,
       photoEpoch,
+      exportBoardData,
+      importBoardData,
     ]
   );
 
