@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { COLORS, SLOTS_PER_BOARD, swatch, wash } from "../colors";
 import { estimateUsage, getPhoto } from "../lib/db";
 import { haptic } from "../lib/haptics";
+import { usePersistenceStatus } from "../lib/persistence";
 import { safeSet } from "../lib/safeStorage";
+import { useInstallPrompt } from "../lib/useInstallPrompt";
 import {
   cleanBoardName,
   DEFAULT_BOARD_ID,
@@ -177,6 +179,13 @@ export function BoardsSheet({
   const [huntOpen, setHuntOpen] = useState(false);
   const totalSlots = COLORS.length * SLOTS_PER_BOARD;
   const demoBoardExists = boards.some((b) => b.id === DEMO_BOARD_ID);
+  const { persisted, refresh: refreshPersisted } = usePersistenceStatus();
+  const {
+    canInstall,
+    isStandalone,
+    needsManualInstructions,
+    install,
+  } = useInstallPrompt();
 
   const [usage, setUsage] = useState<string | null>(null);
   useEffect(() => {
@@ -447,6 +456,45 @@ export function BoardsSheet({
             trailing={<Chevron />}
           />
         </MenuGroup>
+
+        <SectionLabel>Photo Safety</SectionLabel>
+        <MenuGroup>
+          <MenuRow
+            label="Storage protection"
+            detail={
+              persisted === true
+                ? "On"
+                : persisted === false
+                  ? "Off"
+                  : "Unknown"
+            }
+          />
+          {persisted === false && !isStandalone && canInstall && (
+            <MenuRow
+              label="Install Snaps to protect photos"
+              onClick={() => {
+                haptic("select");
+                void install().then((accepted) => {
+                  if (accepted) {
+                    window.setTimeout(
+                      () => void refreshPersisted({ force: true }),
+                      2500,
+                    );
+                  }
+                });
+              }}
+            />
+          )}
+        </MenuGroup>
+        <MenuFootnote>
+          {persisted === true
+            ? "Your browser treats Snaps photos as protected and won't delete them to free up space. A board backup (in Board Settings) is still the safest copy."
+            : `Without protection, the browser may quietly delete photos when the device runs low on space.${
+                needsManualInstructions
+                  ? " Add Snaps to your Home Screen (Share menu → “Add to Home Screen”) to protect them,"
+                  : " Install Snaps to your home screen to protect them,"
+              } and use “Back up this board” in Board Settings for a copy the browser can never touch.`}
+        </MenuFootnote>
 
         <SectionLabel>Appearance</SectionLabel>
         <div

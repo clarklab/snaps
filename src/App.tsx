@@ -11,6 +11,7 @@ import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
 import { OverallProgress } from "./components/OverallProgress";
+import { ProtectCard } from "./components/ProtectCard";
 import { ResyncBanner } from "./components/ResyncBanner";
 import { SampleCard } from "./components/SampleCard";
 import { ShareIntake } from "./components/ShareIntake";
@@ -284,6 +285,12 @@ export default function App() {
       {/* Storage-desync recovery: appears only when the store has verified
           that placed photos won't load (counts up, tiles blank). */}
       <ResyncBanner />
+
+      {/* Durable-storage nudge: photos exist but live in evictable
+          best-effort storage (browser tab, persistence not granted).
+          Hidden while the intro/tour owns the screen, and ResyncBanner
+          takes priority via its own needsResync check. */}
+      {!introOpen && !demo.running && <ProtectCard />}
 
       <ColorBoard
         onSelect={openColor}
