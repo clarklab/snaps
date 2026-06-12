@@ -149,7 +149,11 @@ function ToastViewport({
         display: "flex",
         justifyContent: "center",
         pointerEvents: "none",
-        zIndex: 70,
+        // Above every other surface — sheets (50), share intake (85), the
+        // tour layer (90) and the intro (100) — so a transient notice (e.g.
+        // install instructions fired from the intro) is never silently
+        // hidden behind the surface that triggered it.
+        zIndex: 110,
         padding: "0 16px",
       }}
     >
