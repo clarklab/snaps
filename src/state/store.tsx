@@ -335,18 +335,23 @@ function isValidCrop(c: unknown): c is Crop {
 }
 
 /**
- * Emitted (as store state) when an addPhoto placement fills the last empty
- * slot of a color grid. This is the ONLY trigger for completion celebrations,
- * and it deliberately fires from the genuine "a photo was just placed" path:
- * hydration restores, backup imports, replacements in already-full grids and
- * sample/tour seeding never produce one, so a celebration can never pop just
- * because existing data finished loading.
+ * Emitted (as store state) when something the user did completes a board.
+ * Two paths produce one, both deliberate user actions:
+ *  - addPhoto filling the last empty slot of a color grid (the only path
+ *    that produces per-color events), and
+ *  - importBoardData restoring a backup whose layout is fully complete
+ *    (overall event only — restoring is re-entering the finished state,
+ *    so the finale shows but no per-color celebration does).
+ * Hydration restores, durable-backup self-heals, replacements in already-
+ * full grids and sample/tour seeding never produce one, so a celebration
+ * can never pop just because existing data finished loading.
  */
 export interface CompletionEvent {
   /** Monotonic per-mount id so consumers can tell consecutive events apart. */
   seq: number;
-  /** The color grid this placement completed. */
-  colorId: string;
+  /** The color grid this placement completed; null for whole-board events
+   *  that no single placement caused (a restored complete backup). */
+  colorId: string | null;
   /** How many color grids are complete after this placement. */
   completedColors: number;
   /** True when this placement finished the entire board (every color full). */
@@ -824,6 +829,9 @@ export function StoreProvider({
           type: rec.type || "image/jpeg",
         };
         if (cropsNow[id]) entry.crop = cropsNow[id];
+        if (Number.isFinite(rec.addedAt) && rec.addedAt > 0) {
+          entry.addedAt = rec.addedAt;
+        }
         files.push({ name, blob: rec.full });
         entries.push(entry);
         photoCount++;
@@ -904,7 +912,14 @@ export function StoreProvider({
             type: processed.type,
             width: processed.width,
             height: processed.height,
-            addedAt: Date.now(),
+            // Keep the photo's original timeline across a backup round-trip;
+            // older backups without the field date from the restore.
+            addedAt:
+              typeof entry.addedAt === "number" &&
+              Number.isFinite(entry.addedAt) &&
+              entry.addedAt > 0
+                ? entry.addedAt
+                : Date.now(),
           });
           written.push(id);
           nextBoards[c.id][i] = id;
@@ -939,6 +954,25 @@ export function StoreProvider({
     setNeedsResync(false);
     setPhotoEpoch((e) => e + 1);
     void ensurePersistentStorage();
+
+    // Restoring a backup of a finished board re-enters the finished state —
+    // worth the finale. Computed from the freshly built layout (not state,
+    // which hasn't committed yet). Partial restores celebrate nothing: the
+    // restore didn't complete a color, it reproduced one.
+    const completedAfter = COLORS.filter(
+      (c) =>
+        (nextBoards[c.id]?.filter(Boolean).length ?? 0) === SLOTS_PER_BOARD,
+    ).length;
+    if (completedAfter === COLORS.length) {
+      completionSeqRef.current += 1;
+      setCompletion({
+        seq: completionSeqRef.current,
+        colorId: null,
+        completedColors: completedAfter,
+        overallComplete: true,
+      });
+    }
+
     return { placed };
   }, []);
 

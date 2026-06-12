@@ -22,6 +22,14 @@ export interface BackupPhotoEntry {
   type: string;
   /** Non-destructive grid crop, if one was set. */
   crop?: Crop;
+  /**
+   * When the photo was originally added (Unix ms), restored on import so
+   * stats like "first snap to last" survive a backup round-trip. Optional:
+   * older backups lack it (restore falls back to the import time) and older
+   * builds reading newer backups simply ignore it — which is why this is an
+   * optional field on version 1, not a version bump.
+   */
+  addedAt?: number;
 }
 
 export interface BackupManifest {
