@@ -7,6 +7,7 @@ import {
   demoHandoff,
   useDemoLaunch,
 } from "./components/Boards";
+import { CelebrationHost } from "./components/Celebration";
 import { ColorBoard } from "./components/ColorBoard";
 import { ColorDetail } from "./components/ColorDetail";
 import { Intro, INTRO_SEEN_KEY, introWasSeen } from "./components/Intro";
@@ -342,6 +343,11 @@ export default function App() {
           forceMosaic={demo.running ? demo.mosaic : undefined}
         />
       )}
+
+      {/* Completion celebrations (color complete / whole board complete).
+          Deferred — not dropped — while the tour or the share intake owns
+          the screen: the celebration pops the moment that flow finishes. */}
+      <CelebrationHost deferred={demo.running || sharedFiles.length > 0} />
 
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 

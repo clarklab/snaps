@@ -334,6 +334,25 @@ function isValidCrop(c: unknown): c is Crop {
   );
 }
 
+/**
+ * Emitted (as store state) when an addPhoto placement fills the last empty
+ * slot of a color grid. This is the ONLY trigger for completion celebrations,
+ * and it deliberately fires from the genuine "a photo was just placed" path:
+ * hydration restores, backup imports, replacements in already-full grids and
+ * sample/tour seeding never produce one, so a celebration can never pop just
+ * because existing data finished loading.
+ */
+export interface CompletionEvent {
+  /** Monotonic per-mount id so consumers can tell consecutive events apart. */
+  seq: number;
+  /** The color grid this placement completed. */
+  colorId: string;
+  /** How many color grids are complete after this placement. */
+  completedColors: number;
+  /** True when this placement finished the entire board (every color full). */
+  overallComplete: boolean;
+}
+
 interface StoreValue {
   boards: Boards;
   filledCount: (colorId: string) => number;
@@ -341,6 +360,8 @@ interface StoreValue {
   completedColors: number;
   totalFilled: number;
   totalSlots: number;
+  /** Latest color-completion event — see CompletionEvent. */
+  completion: CompletionEvent | null;
   addPhoto: (
     colorId: string,
     slot: number,
@@ -432,6 +453,8 @@ export function StoreProvider({
   // board briefly present after a wiped localStorage could clobber a good
   // backup before we get the chance to restore from it.
   const [hydrated, setHydrated] = useState(false);
+  const [completion, setCompletion] = useState<CompletionEvent | null>(null);
+  const completionSeqRef = useRef(0);
   const [needsResync, setNeedsResync] = useState(false);
   const [resyncing, setResyncing] = useState(false);
   const [photoEpoch, setPhotoEpoch] = useState(0);
@@ -986,6 +1009,14 @@ export function StoreProvider({
 
       if (opts?.sample) setSampleIds((prev) => [...prev, id]);
 
+      // Completion detection, against the pre-add snapshot: this placement
+      // completes the color only when it fills the grid's single remaining
+      // empty slot. Replacing a photo in a full grid never qualifies.
+      const prevSlots = boardsRef.current[colorId] ?? [];
+      const completesColor =
+        !prevSlots[slot] &&
+        prevSlots.filter(Boolean).length === SLOTS_PER_BOARD - 1;
+
       setBoards((prev) => {
         const board = [...(prev[colorId] ?? [])];
         const previous = board[slot];
@@ -998,6 +1029,24 @@ export function StoreProvider({
         }
         return { ...prev, [colorId]: board };
       });
+
+      // Sample/tour seeding stays silent — celebrations are for the player's
+      // own photos, and the guided tour must never be interrupted by one.
+      if (completesColor && !opts?.sample) {
+        const completedAfter = COLORS.filter(
+          (c) =>
+            c.id === colorId ||
+            (boardsRef.current[c.id]?.filter(Boolean).length ?? 0) ===
+              SLOTS_PER_BOARD,
+        ).length;
+        completionSeqRef.current += 1;
+        setCompletion({
+          seq: completionSeqRef.current,
+          colorId,
+          completedColors: completedAfter,
+          overallComplete: completedAfter === COLORS.length,
+        });
+      }
 
       // Janitor: the setBoards above is only *queued* — if this provider
       // unmounts before React commits it (board switched away mid-add, e.g.
@@ -1129,6 +1178,7 @@ export function StoreProvider({
       completedColors,
       totalFilled,
       totalSlots,
+      completion,
       addPhoto,
       removePhoto,
       movePhoto,
@@ -1152,6 +1202,7 @@ export function StoreProvider({
       completedColors,
       totalFilled,
       totalSlots,
+      completion,
       addPhoto,
       removePhoto,
       movePhoto,

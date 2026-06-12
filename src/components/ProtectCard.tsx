@@ -5,6 +5,7 @@ import { usePersistenceStatus } from "../lib/persistence";
 import { safeGet, safeSet } from "../lib/safeStorage";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useStore } from "../state/store";
+import { useToast } from "./Toast";
 
 const SNOOZE_KEY = "snaps.protectNudgeSnooze.v1";
 const SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -16,17 +17,20 @@ function snoozedUntil(): number {
 }
 
 /**
- * Gentle home-grid nudge shown while photos sit in best-effort (evictable)
+ * Slim home-grid nudge shown while photos sit in best-effort (evictable)
  * storage in a browser tab. The browser is free to delete that data under
  * disk pressure — losing every photo — and installing the app is what flips
- * Chromium to durable storage. Dismissable, snoozes two weeks, and
- * disappears for good once storage is persistent or the app is installed.
+ * Chromium to durable storage. One line, one button: tapping Install fires
+ * the native prompt where the platform has one, and shows the
+ * add-to-home-screen steps where it doesn't (iOS). Dismissing snoozes two
+ * weeks; the banner retires itself once storage is persistent or the app
+ * is installed.
  */
 export function ProtectCard() {
   const store = useStore();
+  const toast = useToast();
   const { persisted, refresh } = usePersistenceStatus();
-  const { canInstall, isStandalone, needsManualInstructions, install } =
-    useInstallPrompt();
+  const { canInstall, isStandalone, install } = useInstallPrompt();
   const [snooze, setSnooze] = useState(snoozedUntil);
 
   const show =
@@ -45,10 +49,21 @@ export function ProtectCard() {
 
   const doInstall = async () => {
     haptic("select");
-    const accepted = await install();
-    // Chromium grants persistence to installed PWAs; give the grant a
-    // beat to land, then re-check so the card retires itself.
-    if (accepted) window.setTimeout(() => void refresh({ force: true }), 2500);
+    if (canInstall) {
+      const accepted = await install();
+      // Chromium grants persistence to installed PWAs; give the grant a
+      // beat to land, then re-check so the banner retires itself.
+      if (accepted) window.setTimeout(() => void refresh({ force: true }), 2500);
+      return;
+    }
+    // No programmatic prompt (iOS Safari, or the event hasn't fired yet):
+    // show the manual steps instead.
+    toast.push({
+      title: "Add to Home Screen",
+      detail: "Tap the share icon, then choose Add to Home Screen.",
+      tone: "info",
+      timeout: 6000,
+    });
   };
 
   return (
@@ -65,47 +80,39 @@ export function ProtectCard() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "12px 14px",
-              borderRadius: 16,
+              gap: 10,
+              padding: "10px 12px",
+              borderRadius: 14,
               background: "var(--fill-quaternary)",
               boxShadow: "inset 0 0 0 1px var(--hairline)",
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 650 }}>
-                Protect your photos
-              </div>
-              <div
-                style={{
-                  fontSize: 12.5,
-                  lineHeight: 1.35,
-                  color: "var(--label-secondary)",
-                  marginTop: 2,
-                }}
-              >
-                {needsManualInstructions
-                  ? "Browsers can delete tab storage to free space. Open the Share menu and choose “Add to Home Screen” to keep your photos safe."
-                  : "Browsers can delete tab storage to free space. Add Snaps to your home screen to keep your photos safe."}
-              </div>
-            </div>
-            {canInstall && (
-              <motion.button
-                onClick={() => void doInstall()}
-                whileTap={{ scale: 0.96 }}
-                style={{
-                  flexShrink: 0,
-                  padding: "9px 14px",
-                  borderRadius: 12,
-                  background: "var(--accent)",
-                  color: "#ffffff",
-                  fontSize: 13.5,
-                  fontWeight: 650,
-                }}
-              >
-                Add to Home Screen
-              </motion.button>
-            )}
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 13.5,
+                fontWeight: 550,
+                lineHeight: 1.3,
+              }}
+            >
+              Install Snaps to keep your photos safe.
+            </span>
+            <motion.button
+              onClick={() => void doInstall()}
+              whileTap={{ scale: 0.96 }}
+              style={{
+                flexShrink: 0,
+                padding: "8px 14px",
+                borderRadius: 11,
+                background: "var(--accent)",
+                color: "#ffffff",
+                fontSize: 13.5,
+                fontWeight: 650,
+              }}
+            >
+              Install
+            </motion.button>
             <button
               onClick={dismiss}
               aria-label="Dismiss for now"

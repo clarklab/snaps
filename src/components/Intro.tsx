@@ -64,6 +64,10 @@ const HOLD_MS = 3200; // how long each frame stays before transitioning
 
 export function Intro({ onDone }: { onDone: () => void }) {
   const [idx, setIdx] = useState(0);
+  // Skipping in a browser tab first shows a one-beat explainer: photos live
+  // in storage the browser is allowed to clear, and installing is what makes
+  // them durable. The user can still continue in the browser with one tap.
+  const [skipOpen, setSkipOpen] = useState(false);
   const install = useInstallPrompt();
   const toast = useToast();
   const reducedMotion = useMemo(
@@ -101,6 +105,16 @@ export function Intro({ onDone }: { onDone: () => void }) {
   const dismiss = () => {
     safeSet(INTRO_SEEN_KEY, "1");
     onDone();
+  };
+
+  const onSkip = () => {
+    haptic("tap");
+    // Installed app already has durable storage — nothing to warn about.
+    if (install.isStandalone) {
+      dismiss();
+      return;
+    }
+    setSkipOpen(true);
   };
 
   const handleInstall = async () => {
@@ -167,7 +181,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
           Colors are pinned to light-theme values since the white bg
           stays white regardless of the device theme. */}
       <button
-        onClick={dismiss}
+        onClick={onSkip}
         style={{
           position: "absolute",
           top: "calc(var(--safe-top) + 16px)",
@@ -345,7 +359,147 @@ export function Intro({ onDone }: { onDone: () => void }) {
           <RainbowInstallButton onClick={handleInstall} label={installLabel} />
         )}
       </div>
+
+      {/* Skip explainer — the one thing worth saying before someone leaves:
+          in a browser tab the photos sit in storage the browser may clear.
+          Tapping the scrim returns to the intro; "Continue in browser"
+          proceeds with the skip. Colors are pinned to light values like the
+          rest of the intro's white page. */}
+      <AnimatePresence>
+        {skipOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            onClick={() => setSkipOpen(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Before you skip"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 28,
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              transition={{ type: "spring", stiffness: 360, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 330,
+                background: "#ffffff",
+                color: "#1c1c1e",
+                borderRadius: 24,
+                padding: "24px 22px 18px",
+                textAlign: "center",
+                boxShadow: "0 24px 70px rgba(0,0,0,0.3)",
+              }}
+            >
+              <h2
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 21,
+                  fontWeight: 700,
+                  letterSpacing: -0.3,
+                }}
+              >
+                One thing before you go
+              </h2>
+              <p
+                style={{
+                  margin: "0 0 18px",
+                  fontSize: 14.5,
+                  lineHeight: 1.45,
+                  color: "rgba(60, 60, 67, 0.78)",
+                }}
+              >
+                Your photos stay on this device only. In a browser tab, the
+                browser is allowed to delete them to free up space —
+                installing the app keeps them safe.
+              </p>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                {install.needsManualInstructions ? (
+                  <p
+                    style={{
+                      margin: "0 0 2px",
+                      padding: "12px 14px",
+                      borderRadius: 14,
+                      background: "rgba(116, 116, 128, 0.08)",
+                      fontSize: 13.5,
+                      lineHeight: 1.4,
+                      fontWeight: 500,
+                      color: "#1c1c1e",
+                    }}
+                  >
+                    Tap <ShareGlyph /> below, then choose
+                    {" "}
+                    <strong>Add to Home Screen</strong>.
+                  </p>
+                ) : (
+                  <RainbowInstallButton
+                    onClick={handleInstall}
+                    label={installLabel}
+                  />
+                )}
+                <button
+                  onClick={dismiss}
+                  style={{
+                    width: "100%",
+                    padding: "13px 16px",
+                    borderRadius: 14,
+                    background: "rgba(116, 116, 128, 0.08)",
+                    color: "rgba(60, 60, 67, 0.7)",
+                    fontSize: 15,
+                    fontWeight: 600,
+                  }}
+                >
+                  Continue in browser
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
+  );
+}
+
+/** Inline iOS share glyph (square with up arrow), sized to flow with text. */
+function ShareGlyph() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 18 18"
+      fill="none"
+      aria-label="the share button"
+      style={{ display: "inline", verticalAlign: "-2px" }}
+    >
+      <path
+        d="M9 11.5V2.5M9 2.5l-3 3M9 2.5l3 3"
+        stroke="#007aff"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.5 9v5.5a1 1 0 001 1h9a1 1 0 001-1V9"
+        stroke="#007aff"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
