@@ -345,9 +345,14 @@ export default function App() {
       )}
 
       {/* Completion celebrations (color complete / whole board complete).
-          Deferred — not dropped — while the tour or the share intake owns
-          the screen: the celebration pops the moment that flow finishes. */}
-      <CelebrationHost deferred={demo.running || sharedFiles.length > 0} />
+          Deferred — not dropped — while the tour, the share intake, or the
+          settings sheet owns the screen: the celebration pops the moment
+          that flow finishes. Settings matters because restoring a complete
+          backup emits the finale from inside the sheet (which stacks above
+          the celebration layer). */}
+      <CelebrationHost
+        deferred={demo.running || sharedFiles.length > 0 || settingsOpen}
+      />
 
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 

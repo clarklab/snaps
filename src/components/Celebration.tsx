@@ -42,12 +42,46 @@ import { Thumbnail } from "./Thumbnail";
  * While either of those owns the screen the host *defers* instead: the event
  * is held and the celebration pops the moment the flow ends.
  */
+/**
+ * Re-open the overall finale on demand (the trophy button on a finished
+ * home grid). A window event keeps the trigger decoupled from the host the
+ * same way the app's other cross-surface signals work (snaps:db-wedged,
+ * snaps:sw-update); the host ignores it unless the board is genuinely
+ * complete, so a stray dispatch can never show a false celebration.
+ */
+const SHOW_FINALE_EVENT = "snaps:show-finale";
+
+export function requestFinale(): void {
+  window.dispatchEvent(new CustomEvent(SHOW_FINALE_EVENT));
+}
+
 export function CelebrationHost({ deferred = false }: { deferred?: boolean }) {
   const store = useStore();
   const [active, setActive] = useState<ActiveCelebration | null>(null);
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
   const lastSeq = useRef(0);
   const pending = useRef<CompletionEvent | null>(null);
+  // Replays get their own (negative) sequence so they can never collide
+  // with real completion events in the AnimatePresence keys.
+  const replaySeq = useRef(0);
+
+  useEffect(() => {
+    const onShow = () => {
+      if (store.totalFilled !== store.totalSlots) return;
+      replaySeq.current -= 1;
+      setActive({
+        event: {
+          seq: replaySeq.current,
+          colorId: null,
+          completedColors: COLORS.length,
+          overallComplete: true,
+        },
+        slots: [],
+      });
+    };
+    window.addEventListener(SHOW_FINALE_EVENT, onShow);
+    return () => window.removeEventListener(SHOW_FINALE_EVENT, onShow);
+  }, [store.totalFilled, store.totalSlots]);
 
   useEffect(() => {
     const ev = store.completion;
@@ -62,12 +96,14 @@ export function CelebrationHost({ deferred = false }: { deferred?: boolean }) {
     // mini preview show exactly what was on the board at the moment of glory.
     setActive({
       event: next,
-      slots: [...(store.boards[next.colorId] ?? [])],
+      slots: next.colorId ? [...(store.boards[next.colorId] ?? [])] : [],
     });
     haptic("success");
   }, [store.completion, deferred, store.boards]);
 
-  const color = active ? colorById(active.event.colorId) : undefined;
+  const color = active?.event.colorId
+    ? colorById(active.event.colorId)
+    : undefined;
 
   return (
     <>

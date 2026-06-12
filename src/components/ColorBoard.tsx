@@ -7,6 +7,7 @@ import {
   type QuestColor,
 } from "../colors";
 import { haptic } from "../lib/haptics";
+import { requestFinale } from "./Celebration";
 import { useDemo } from "../state/demo";
 import { useStore } from "../state/store";
 import { useTheme } from "../state/theme";
@@ -88,34 +89,57 @@ export function ColorBoard({
       </div>
 
       {/* Overall share — surfaces only once every color is full so the user
-          earned it. Same shape as the per-color share button. */}
+          earned it. Same shape as the per-color share button, with the
+          trophy alongside to replay the finale (stats + confetti). */}
       {allComplete && (
         <>
-          <motion.button
-            onClick={() => {
-              haptic("select");
-              setShareOpen(true);
-            }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              width: "100%",
-              marginTop: 22,
-              padding: "14px 18px",
-              borderRadius: 14,
-              background: "var(--accent)",
-              color: "#ffffff",
-              fontSize: 16,
-              fontWeight: 700,
-              boxShadow: "0 6px 20px rgba(0, 122, 255, 0.28)",
-            }}
-          >
-            <ShareIcon />
-            Share my Snaps
-          </motion.button>
+          <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+            <motion.button
+              onClick={() => {
+                haptic("select");
+                requestFinale();
+              }}
+              whileTap={{ scale: 0.95 }}
+              aria-label="Show board stats"
+              style={{
+                flexShrink: 0,
+                width: 52,
+                borderRadius: 14,
+                background: "var(--fill-quaternary)",
+                boxShadow: "inset 0 0 0 1px var(--hairline)",
+                fontSize: 22,
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              🏆
+            </motion.button>
+            <motion.button
+              onClick={() => {
+                haptic("select");
+                setShareOpen(true);
+              }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                flex: 1,
+                minWidth: 0,
+                padding: "14px 18px",
+                borderRadius: 14,
+                background: "var(--accent)",
+                color: "#ffffff",
+                fontSize: 16,
+                fontWeight: 700,
+                boxShadow: "0 6px 20px rgba(0, 122, 255, 0.28)",
+              }}
+            >
+              <ShareIcon />
+              Share my Snaps
+            </motion.button>
+          </div>
           {/* Secondary action: only when the grid is entirely sample data.
               Sharing a complete demo set is fun the first time, but the
               prominent next step is clearing it so the user can collect
